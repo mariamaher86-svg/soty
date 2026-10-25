@@ -1,0 +1,28 @@
+# dependencies and build output (GitHub Actions rebuilds dist on every push)
+node_modules
+dist
+*.local
+
+# secrets / local settings
+.env
+.env.*
+.claude/settings.local.json
+
+# personal data: app backups, exported songs and recordings must never go to GitHub
+soty-backup-*.json
+soty-song-*.json
+/backups/
+*.webm
+*.m4a
+/*.mp3
+/*.wav
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.log
+npm-debug.log*

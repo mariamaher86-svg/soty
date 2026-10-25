@@ -1,0 +1,17 @@
+{
+  "name": "صوتي — تدريب الصوت",
+  "short_name": "صوتي",
+  "description": "تدريب الصوت على الغنا: النغمة، النفس، المقامات العربي، والأغاني.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#5e46c8",
+  "background_color": "#f7f5fc",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
