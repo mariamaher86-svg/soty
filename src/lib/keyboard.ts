@@ -61,6 +61,15 @@ export function targetFreq(midi: number, quarter: Quarter = 0): number {
   return midiToFreq(midi + quarter);
 }
 
+/** A pitch that may be a quarter tone (63.5) as a key + offset, spelled like the maqam names: half-flat of a white key
+ * above (E½♭ = E −0.5), otherwise half-sharp of the key below (F½♯ = F +0.5). */
+export function toKeyQuarter(midi: number): { key: number; quarter: Quarter } {
+  const r = Math.round(midi * 2) / 2;
+  if (Number.isInteger(r)) return { key: r, quarter: 0 };
+  const upper = Math.ceil(r);
+  return isBlack(upper) ? { key: Math.floor(r), quarter: 0.5 } : { key: upper, quarter: -0.5 };
+}
+
 /** How far a sung frequency is from the target, in cents (+ = too high). */
 export function centsToTarget(freq: number, midi: number, quarter: Quarter = 0): number {
   return centsBetween(freq, targetFreq(midi, quarter));

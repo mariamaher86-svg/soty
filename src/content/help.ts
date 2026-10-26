@@ -14,6 +14,7 @@ export type HelpKey =
   | 'ear'
   | 'match'
   | 'piano'
+  | 'piano-vocalise'
   | 'game'
   | 'range'
   | 'intervals'
@@ -240,6 +241,21 @@ export const HELP: Record<HelpKey, HelpEntry> = {
     ],
     numbers: ['السنت: ±٢٠ أو أقل = مظبوط. النتيجة في التقدم = نسبة النغمات المظبوطة من المحاولات، ومتوسط البعد بالسنت.'],
     tips: ['المنطقة المعلّمة على البيانو = المريحة لصوتك (من اختبار المساحة).', 'في «خيارات»: أسامي النغمات (دو ري مي / C D E)، مفاتيح أكبر، صوت النغمة، والربع تون («نص بيمول» / «نص دييز»).'],
+    sound: true,
+  },
+  'piano-vocalise': {
+    title: '🎹 فوكاليز على البيانو',
+    href: '#/piano/vocalise',
+    what: 'تمارين الفوكاليز (أو سلم مقام بالربع تون) على البيانو: بتسمعيه والمفاتيح بتنوّر، وبعدين بتغنيه والتطبيق بيحكم على كل نغمة لوحدها.',
+    why: 'بتعرفي بالظبط أنهي نغمة في التمرين بتطلع مظبوطة وأنهي واحدة محتاجة شغل وبكام سنت.',
+    steps: [
+      'اختيار التمرين (أو «🎼 سلم مقام»)، ودوسة على المفتاح اللي التمرين يبدأ منه.',
+      '«🔊 اسمعي»: التمرين بيتعزف وكل مفتاح بينوّر، والمقطع مكتوب فوقه.',
+      '«🎤 دورك»: أول نغمة بتتسمع، وبعدين غنّي. المفتاح المطلوب منوّر، واللي بتغنيه بلون تاني؛ النغمة اللي تثبتي عليها بتاخد ✔ ويروح للي بعدها.',
+      'في الآخر النتيجة، و«🔁 تاني نفس الطبقة» أو «⬆ نص تون» / «⬇ نص تون».',
+    ],
+    numbers: ['✔ = في حدود ±٢٥ سنت لحظة قصيرة (الستاكاتو أقصر). نغمة متجتش في كام ثانية بتاخد ✘ ومكتوب جنبها أعلى ولا أوطى بكام سنت.', 'زحلقة الأوكتاف: بيتحكم على أول وآخر نغمة بس، مش على الزحلقة نفسها.'],
+    tips: ['في «خيارات»: السرعة (بطيء / متوسط / سريع)، و«تطلع لوحدها» — بعد كل مرة ٨٠٪ أو أكتر بتطلع نص تون لحد آخر المنطقة المريحة وبعدين تنزل، زي الإحماء الحقيقي.', 'لو بتغني أوطى أو أعلى بأوكتاف بتطلع ملحوظة.'],
     sound: true,
   },
   warmup: {
@@ -472,7 +488,7 @@ export const HELP: Record<HelpKey, HelpEntry> = {
 };
 
 /** Order for the user guide (learning order). */
-export const GUIDE_ORDER: HelpKey[] = ['path', 'lessons', 'exercises', 'findnote', 'vocalise', 'warmup', 'ear', 'piano', 'match', 'game', 'range', 'intervals', 'rhythm', 'maqam', 'breath', 'dynamics', 'songs', 'sing-file', 'sing-youtube', 'loop', 'learn', 'choir', 'key', 'teacher', 'car', 'badges', 'progress', 'backup'];
+export const GUIDE_ORDER: HelpKey[] = ['path', 'lessons', 'exercises', 'findnote', 'vocalise', 'warmup', 'ear', 'piano', 'piano-vocalise', 'match', 'game', 'range', 'intervals', 'rhythm', 'maqam', 'breath', 'dynamics', 'songs', 'sing-file', 'sing-youtube', 'loop', 'learn', 'choir', 'key', 'teacher', 'car', 'badges', 'progress', 'backup'];
 
 /** Labels quoted «like this» in an entry. */
 export function quotedLabels(e: HelpEntry): string[] {

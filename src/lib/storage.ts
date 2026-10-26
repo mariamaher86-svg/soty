@@ -2,7 +2,7 @@
 
 import type { Measurement, WorkoutLog } from './path';
 
-export type ResultType = 'range' | 'match' | 'maqam' | 'sustain' | 'stability' | 'hiss' | 'singalong' | 'scale' | 'ear-pitch' | 'ear-same' | 'ear-interval' | 'ear-maqam' | 'intervals' | 'loop' | 'vocalise' | 'findnote' | 'phrase' | 'rhythm' | 'game' | 'dynamics' | 'piano';
+export type ResultType = 'range' | 'match' | 'maqam' | 'sustain' | 'stability' | 'hiss' | 'singalong' | 'scale' | 'ear-pitch' | 'ear-same' | 'ear-interval' | 'ear-maqam' | 'intervals' | 'loop' | 'vocalise' | 'findnote' | 'phrase' | 'rhythm' | 'game' | 'dynamics' | 'piano' | 'piano-vocalise';
 
 export interface SavedRange {
   low: number; // MIDI

@@ -22,6 +22,7 @@ const SECTIONS: { title: string; items: { href: string; icon: string; name: stri
     items: [
       { href: '#/range', icon: '📏', name: 'اختبار المساحة الصوتية', what: 'أوطى وأعلى نغمة، وطبقة صوتك.' },
       { href: '#/vocalise', icon: '🎶', name: 'تمارين الصوت (فوكاليز)', what: '"آه ها ها آآآ" طالعة نص تون نص تون في كل صوتك.' },
+      { href: '#/piano/vocalise', icon: '🎹', name: 'فوكاليز على البيانو', what: 'نفس التمارين على البيانو، وكل نغمة بتتحكم ✔ ولا ✘ بالسنت.' },
       { href: '#/warmup', icon: '🚑', name: 'السيرينة (في الإحماء)', what: 'زحلقة ناعمة لفوق ولتحت مع خط.' },
     ],
   },

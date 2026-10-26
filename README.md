@@ -42,6 +42,7 @@ npm run dev:phone
 This serves on your network over HTTPS with a self-signed certificate (`@vitejs/plugin-basic-ssl`). Accept the certificate warning on the phone once.
 
 **٢. على GitHub Pages (للاستخدام اليومي، ومجاني):**
+التطبيق شغال على **https://mariamaher86-svg.github.io/soty/** (repo: `mariamaher86-svg/soty`).
 الكود بيتحفظ على GitHub (ده كمان نسخة احتياطية من الكود)، وكل `git push` بيبني التطبيق وينشره لوحده على `https://<اسمك>.github.io/soty/`.
 *The code lives in a GitHub repo; every push to `main` runs `.github/workflows/deploy.yml` (npm ci → npm test → npm run build → deploy `dist` to GitHub Pages). A failing test stops the deploy. The app is served from the `/soty/` sub-path; all paths are relative, so the service worker, manifest, icons and samples work there.*
 
@@ -149,6 +150,7 @@ git push
 - **🎼 صوتك في الكورال** (من صفحة الأغنية): ملف لكل صوت (سوبرانو/ألتو/تينور/باص…) متخزن زي ملف الأغنية وداخل في النسخة الاحتياطية. بيشتغلوا مع بعض متزامنين، ولكل صوت علو وكتم. أوضاع: «اسمعي صوتك لوحده»، «صوتك عالي»، «الكورال من غيرك»، و«صوتك بيختفي تدريجيًا» (ربع أوطى مع كل تكرار). النتيجة على لحن صوتك إنتي (حتى لو أوكتاف أوطى/أعلى)، مع تقسيم الجمل والتكرار وسرعة ٧٥٪.
 - **🥁 الإيقاع**: مترونوم (سرعة، ٢/٣/٤ في المازورة، الأولى أعلى)، وتمرين تصقيف أو «تا»: ٤ عدّات «١، ٢، ٣، ٤ — ادخلي» وبعدين مازورتين من ♩ ♫ 𝄽. التطبيق بيسمع كل تصقيفة (ارتفاع مفاجئ في العلو) ويقول «دخلتي بدري ٠٫١ ثانية» أو «متأخر» أو «مظبوط»، ونتيجة كلية. **ظبط التأخير**: تصقيف مع ١٢ ضربة مرة واحدة، والتأخير (الموبايل بيتأخر في السماع والتسجيل) بيتحفظ ويتطرح؛ تقدري تعيديه. فيه درس «الإيقاع» في الأساسيات، وخطوة إيقاع في مسار المبتدئ بعد ما الأساسيات تخلص (يوم إيقاع ويوم فواصل).
 - **📤 ابعتي أغنية**: «📤 صدّري الأغنية» في صفحة الأغنية = ملف واحد فيه البيانات، السلم، الكلام والكوردات، الجمل، والصوت وأصوات الكورال (من غير نتايجك)، مع الحجم واختيار "من غير صوت"، وزرار مشاركة على الموبايل. «📥 استوردي أغنية» في المكتبة بيفحص الملف؛ لو الأغنية موجودة بيسأل: «احتفظي بالاتنين» أو «استبدلي القديمة».
+- **🎹 البيانو**: البيانو كله (C2–C7)، دوسة على أي مفتاح وغنّيه والمؤشر بيقول قريب ولا بعيد، أو «🎙️ وريني بغني إيه». و**🎶 فوكاليز على البيانو**: التمرين بيتعزف والمفاتيح بتنوّر، وبعدين «🎤 دورك» وكل نغمة بتاخد ✔ أو ✘ بالسنت، مع «⬆ نص تون» / «⬇ نص تون» والطلوع لوحده، وكمان سلم أي مقام بالربع تون.
 - **🎮 لعبة الصوت**: عصفورة على canvas ارتفاعها = النغمة (على قد مساحتك)، وبوابات جاية من اليمين. ٣ مستويات: نغمات لوحدها ببطء ← دو ري مي ← جمل مقامات بالربع تون. السكوت = العصفورة تنزل بالراحة (مفيش موت). وقفي/كمّلي، أعلى نتيجة لكل مستوى، وبتحترم "تقليل الحركة".
 - **🏆 الأوسمة والتحدي**: تحدي يومي على قد المستوى بيتعلّم لوحده من النتايج، وأوسمة محسوبة من البيانات المتخزنة بس (٧ أيام ورا بعض، أول أوكتاف، كل الأساسيات، مقام ٩٠٪، أول أغنية جملة جملة، إيقاع ٩٠٪…). احتفال صغير لما وسام جديد ييجي. داخلين في النسخة الاحتياطية.
 - **🎚️ العالي والواطي**: من واطي لعالي، من عالي لواطي، ومسا دي فوتشي على نغمة واحدة؛ خطين (العلو والنغمة) ونتيجتين: نعومة العلو وثبات النغمة، وتنبيه هادي لو الصوت علي جامد على نغمة عالية.
@@ -213,6 +215,7 @@ git push
 - `src/lib/choir.ts` — choir modes/gains, sync, part keys, part octave (tested); `src/pages/ChoirPage.tsx` — parts panel + synced player (one `<audio>` + GainNode per part).
 - `src/lib/rhythm.ts` — metronome lookahead scheduling, onset detection, latency calibration, timing score (tested); `src/audio/metronome.ts`; `src/pages/RhythmPage.tsx`.
 - `src/lib/songShare.ts` — one-song package build/validate/import plan (tested); `src/components/SongShare.tsx`.
+- `src/lib/keyboard.ts` — piano layout, names, quarter-tone keys, nearest key (tested); `src/components/PianoKeyboard.tsx`; `src/pages/PianoPage.tsx`. `src/lib/pianoVocalise.ts` — vocalise/maqam steps, note-by-note follow (hold ✔ / timeout ✘), round score, auto-climb (tested); `src/components/PianoVocalise.tsx`.
 - `src/lib/game.ts` — pitch → height, bird glide, gates and scoring, courses (tested); `src/pages/GamePage.tsx` — canvas + one requestAnimationFrame loop with preallocated state (mic read directly, no React re-render per frame).
 - `src/lib/badges.ts` — badge rules and the daily challenge (tested); `src/pages/BadgesPage.tsx` — page + app-wide celebration (listens to the `soty-result` event from `addResult`).
 - `src/lib/dynamics.ts` — crescendo/decrescendo/messa di voce scoring and the loud-high warning (tested); `src/pages/DynamicsPage.tsx`.

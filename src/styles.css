@@ -2779,3 +2779,83 @@ input[type='range'] {
 .swatch.hit-swatch {
   background: var(--sung-line);
 }
+
+/* ---- 🎶 vocalise on the piano ---- */
+.pv-now {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--s3);
+  min-height: 2.4rem;
+  margin: var(--s2) 0 0;
+  font-weight: 700;
+}
+
+.pv-syllable {
+  font-size: var(--fs-xl);
+  color: var(--accent);
+}
+
+.pv-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s2);
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+}
+
+.pv-dots li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 2.6rem;
+}
+
+.pv-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pv-dots li.now .pv-dot {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.pv-dots li.ok .pv-dot {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+
+.pv-dots li.bad .pv-dot {
+  background: var(--bad-soft);
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.pv-dots small {
+  font-size: 0.68rem;
+  color: var(--bad);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.pv-off {
+  display: inline-block;
+  margin-inline-end: var(--s2);
+  color: var(--bad);
+}

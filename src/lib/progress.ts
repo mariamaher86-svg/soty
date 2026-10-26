@@ -24,6 +24,7 @@ export const RESULT_INFO: Record<ResultType, { ar: string; unit: string; higherI
   game: { ar: 'لعبة الصوت', unit: 'نقطة', higherIsBetter: true },
   dynamics: { ar: 'العالي والواطي', unit: '%', higherIsBetter: true },
   piano: { ar: 'البيانو (نغمات مظبوطة)', unit: '%', higherIsBetter: true },
+  'piano-vocalise': { ar: 'فوكاليز على البيانو (نغمات مظبوطة)', unit: '%', higherIsBetter: true },
 };
 
 export interface DaySummary {

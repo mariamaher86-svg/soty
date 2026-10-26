@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CentsMeter, ErrorText, Options, Page, Stat } from '../components/ui';
 import { PianoKeyboard } from '../components/PianoKeyboard';
+import { PianoVocalise } from '../components/PianoVocalise';
 import { SoundPicker } from '../components/SoundPicker';
 import { OctaveHint } from '../components/OctaveHint';
 import { HoldRing } from '../components/HoldRing';
@@ -13,7 +14,7 @@ import { guidance, HoldTracker, mean, median, percent } from '../lib/stats';
 import { addResult, getPref, setPref } from '../lib/storage';
 import { exerciseRange } from './common';
 
-type Mode = 'target' | 'free';
+type Mode = 'target' | 'free' | 'vocalise';
 
 const LABELS: { id: LabelStyle; ar: string }[] = [
   { id: 'solfege', ar: 'دو ري مي' },
@@ -36,7 +37,8 @@ function targetName(midi: number, quarter: Quarter): { name: string; ar: string 
 /** "🎹 البيانو": tap any key, hear it, sing it — or see on the piano which note you're singing. */
 export function PianoPage() {
   const range = useRef(exerciseRange()).current;
-  const [mode, setMode] = useState<Mode>('target');
+  // #/piano/vocalise opens straight on the vocalise tab (link from the exercises page)
+  const [mode, setMode] = useState<Mode>(() => (window.location.hash.endsWith('/vocalise') ? 'vocalise' : 'target'));
   const [labels, setLabels] = useState<LabelStyle>(() => (getPref('piano.labels') as LabelStyle) || 'solfege');
   const [zoom, setZoom] = useState(() => getPref('piano.zoom') === '1');
   const [quarter, setQuarter] = useState<Quarter>(0);
@@ -145,10 +147,9 @@ export function PianoPage() {
     endAttempt(false);
     setMode(m);
     setSuccess(false);
-    if (m === 'free') {
-      setListening(false);
-      await start();
-    } else stop();
+    setListening(false);
+    if (m === 'free') await start();
+    else stop();
   };
 
   const freq = frame?.freq ?? null;
@@ -160,7 +161,15 @@ export function PianoPage() {
   const micOn = mode === 'free' || listening;
 
   return (
-    <Page tips mic help="piano" title="🎹 البيانو" intro={mode === 'target' ? 'دوسي على أي نغمة تسمعيها، وبعدين غنّيها.' : 'غنّي أي نغمة، والبيانو يوريكي إنتي فين.'}>
+    <Page
+      tips
+      mic
+      help="piano"
+      title="🎹 البيانو"
+      intro={
+        mode === 'target' ? 'دوسي على أي نغمة تسمعيها، وبعدين غنّيها.' : mode === 'free' ? 'غنّي أي نغمة، والبيانو يوريكي إنتي فين.' : 'اختاري تمرين ونغمة البداية، اسمعيه، وبعدين غنّيه نغمة نغمة.'
+      }
+    >
       <div className="choices" role="group" aria-label="الوضع">
         <button className={mode === 'target' ? 'chip active' : 'chip'} onClick={() => void switchMode('target')}>
           🎯 اختاري وغنّي
@@ -168,20 +177,28 @@ export function PianoPage() {
         <button className={mode === 'free' ? 'chip active' : 'chip'} onClick={() => void switchMode('free')}>
           🎙️ وريني بغني إيه
         </button>
+        <button className={mode === 'vocalise' ? 'chip active' : 'chip'} onClick={() => void switchMode('vocalise')}>
+          🎶 فوكاليز
+        </button>
       </div>
 
-      <PianoKeyboard target={mode === 'target' ? target : null} quarter={quarter} hit={micOn && sung?.onKeyboard ? sung.midi : null} comfort={range} labels={labels} zoom={zoom} onKey={pickKey} />
-      <p className="hint piano-legend">
-        <span className="swatch comfort-swatch" /> المنطقة المريحة لصوتك
-        {micOn && (
-          <>
-            {' · '}
-            <span className="swatch hit-swatch" /> اللي بتغنيه
-          </>
-        )}
-      </p>
+      {mode === 'vocalise' && <PianoVocalise labels={labels} zoom={zoom} range={range} />}
+      {mode !== 'vocalise' && (
+        <>
+          <PianoKeyboard target={mode === 'target' ? target : null} quarter={quarter} hit={micOn && sung?.onKeyboard ? sung.midi : null} comfort={range} labels={labels} zoom={zoom} onKey={pickKey} />
+          <p className="hint piano-legend">
+            <span className="swatch comfort-swatch" /> المنطقة المريحة لصوتك
+            {micOn && (
+              <>
+                {' · '}
+                <span className="swatch hit-swatch" /> اللي بتغنيه
+              </>
+            )}
+          </p>
+        </>
+      )}
 
-      <Options label="خيارات: الأسامي، التكبير، الصوت، الربع تون">
+      <Options label={mode === 'vocalise' ? 'خيارات البيانو: الأسامي، التكبير، الصوت' : 'خيارات: الأسامي، التكبير، الصوت، الربع تون'}>
         <div className="choices" role="group" aria-label="أسامي النغمات">
           {LABELS.map((l) => (
             <button
@@ -208,27 +225,31 @@ export function PianoPage() {
           🔍 مفاتيح أكبر
         </label>
         <SoundPicker />
-        <p className="hint">الربع تون (للمقامات): اختاري النغمة، وبعدين:</p>
-        <div className="choices" role="group" aria-label="الربع تون">
-          {QUARTERS.map((q) => (
-            <button
-              key={q.id}
-              className={q.id === quarter ? 'chip active' : 'chip'}
-              onClick={() => {
-                setQuarter(q.id);
-                if (listening) resetTry();
-                if (target !== null) void play(target, q.id);
-              }}
-            >
-              {q.ar}
-            </button>
-          ))}
-        </div>
+        {mode !== 'vocalise' && (
+          <>
+            <p className="hint">الربع تون (للمقامات): اختاري النغمة، وبعدين:</p>
+            <div className="choices" role="group" aria-label="الربع تون">
+              {QUARTERS.map((q) => (
+                <button
+                  key={q.id}
+                  className={q.id === quarter ? 'chip active' : 'chip'}
+                  onClick={() => {
+                    setQuarter(q.id);
+                    if (listening) resetTry();
+                    if (target !== null) void play(target, q.id);
+                  }}
+                >
+                  {q.ar}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </Options>
 
       <ErrorText text={error} />
 
-      {mode === 'free' ? (
+      {mode === 'vocalise' ? null : mode === 'free' ? (
         <div className="panel center">
           {sung ? (
             <>
@@ -253,9 +274,7 @@ export function PianoPage() {
             {tName!.ar} <small dir="ltr">{tName!.name}</small>
           </div>
           {outside && (
-            <p className="warn-text">
-              {outside === 'high' ? 'النغمة دي ممكن تكون عالية على صوتك' : 'النغمة دي ممكن تكون واطية على صوتك'} — غنّيها بهدوء، أو اختاري نغمة من المنطقة المعلّمة.
-            </p>
+            <p className="warn-text">{outside === 'high' ? 'النغمة دي ممكن تكون عالية على صوتك' : 'النغمة دي ممكن تكون واطية على صوتك'} — غنّيها بهدوء، أو اختاري نغمة من المنطقة المعلّمة.</p>
           )}
           {listening && (
             <>

@@ -57,6 +57,7 @@ export const BADGES: Badge[] = [
   { id: 'rhythm', icon: '🥁', ar: 'على الضربة', how: 'نتيجة ٩٠٪ أو أكتر في الإيقاع.', earned: (c) => has(c, 'rhythm', 90) },
   { id: 'game', icon: '🎮', ar: 'العصفورة الطايرة', how: '١٠٠٠ نقطة في لعبة الصوت.', earned: (c) => has(c, 'game', 1000) },
   { id: 'dynamics', icon: '🎚️', ar: 'عالي وواطي بنعومة', how: 'نتيجة ٨٠٪ أو أكتر في العالي والواطي.', earned: (c) => has(c, 'dynamics', 80) },
+  { id: 'pianoVocalise', icon: '🎹', ar: 'فوكاليز من غير غلطة', how: 'كل نغمات فوكاليز على البيانو مظبوطة في مرة واحدة.', earned: (c) => has(c, 'piano-vocalise', 100) },
   { id: 'challenge7', icon: '🏅', ar: '٧ تحديات', how: 'تخلّصي تحدي اليوم ٧ مرات.', earned: (c) => new Set(c.challengeDays).size >= 7 },
 ];
 
@@ -97,6 +98,7 @@ export const CHALLENGES: Challenge[] = [
   { id: 'maqam80', ar: 'المقامات: ٨٠٪ أو أكتر', href: '#/maqam', type: 'maqam', goal: 80, level: 3 },
   { id: 'rhythm85', ar: 'الإيقاع: ٨٥٪ أو أكتر', href: '#/rhythm', type: 'rhythm', goal: 85, level: 3 },
   { id: 'game800', ar: 'لعبة الصوت: ٨٠٠ نقطة', href: '#/game', type: 'game', goal: 800, level: 3 },
+  { id: 'pianovoc80', ar: 'فوكاليز على البيانو: ٨٠٪ أو أكتر', href: '#/piano/vocalise', type: 'piano-vocalise', goal: 80, level: 2 },
   { id: 'dynamics70', ar: 'العالي والواطي: ٧٠٪ أو أكتر', href: '#/dynamics', type: 'dynamics', goal: 70, level: 3 },
   { id: 'ear-maqam70', ar: 'الودن — أنهي مقام: ٧٠٪', href: '#/ear', type: 'ear-maqam', goal: 70, level: 3 },
 ];
