@@ -97,7 +97,7 @@ git push
 التطبيق بيستخدم روابط بـ `#` (زي `#/path`)، فمش محتاج إعدادات `_redirects`؛ أي صفحة بتفتح عادي بعد الـ refresh. ومفيش سيرفر — كل حاجة في المتصفح.
 *Hash routing, relative base (`./`): `dist/` works from any static host or sub-folder; no `_redirects` needed.*
 
-> النتايج متخزنة في المتصفح نفسه (localStorage)، فنتايج الموبايل منفصلة عن نتايج اللابتوب.
+> النتايج متخزنة في المتصفح نفسه (localStorage). من غير حساب، نتايج الموبايل منفصلة عن نتايج اللابتوب؛ بـ «👤 حسابي» بيتزامنوا (تحت).
 > Results live in each browser's localStorage, so phone and laptop keep separate histories.
 
 ### على الآيفون / iPhone tips
@@ -122,6 +122,60 @@ git push
 - الملف فيه تسجيلات صوتك، فخليه ليكي إنتي بس.
 
 *Export/import a JSON backup (app id + format version, app localStorage keys, teacher recordings as base64 16-bit PCM). Import validates the file and asks in-page whether to replace or merge.*
+
+## 👤 حسابي والمزامنة (Supabase) / Account and sync
+
+اختياري: من غير حساب التطبيق شغال زي ما هو، والبيانات على الجهاز بس. بالحساب (دخول بكود من ٦ أرقام على الإيميل)، البيانات بتتحفظ كمان في **مشروع Supabase بتاعك إنتي** وتتزامن بين الموبايل واللابتوب: النتايج، المسار، الإعدادات، بنت/ولد، المستويات، الدروس، الأوسمة، مكتبة الأغاني، والجمل — وملفات الصوت (تسجيلات المعلم، "دو ري مي"، الأغاني، أصوات الكورال) لو «زامني ملفات الصوت» شغالة. تأخير الإيقاع ومستوى دوشة المكان بيفضلوا لكل جهاز لوحده.
+*Optional. Local-first: localStorage/IndexedDB stay the working store; when signed in, each app key is also a row in her own Supabase project (table `soty_docs`, same format as the backup file; results/songs merge like a backup "merge", other keys newest-wins), audio files go to a private bucket under `{user_id}/…`. Row Level Security: each user only sees their own rows/files. Only the project URL and the publishable/anon key are in the app (public by design; the service-role key is never used).*
+
+### خطواتك (مرة واحدة)
+
+1. **حساب Supabase:** افتحي **supabase.com** ← **Start your project** ← **Continue with GitHub** (بحساب `mariamaher86-svg`).
+2. **مشروع جديد:** **New project** ←
+   - Name: **`soty`**
+   - Database Password: اعملي باسورد قوي واحتفظي بيه عندك (التطبيق مش محتاجه).
+   - Region: **Central EU (Frankfurt)** — الأقرب لمصر.
+   - **Create new project** واستني دقيقتين.
+3. **الجداول والأمان:** من الشمال **SQL Editor** ← **New query** ← افتحي ملف `supabase/schema.sql` من فولدر المشروع، انسخي كل اللي فيه والزقيه ← **Run**. لازم يطلع **Success**. (لو شغلتيه مرتين مفيش مشكلة.)
+4. **الدخول بالكود:**
+   1. **Authentication** ← **Sign In / Providers** ← **Email**: اتأكدي إن **Enable Email provider** شغال، و**Email OTP Length = 6** ← **Save**.
+   2. **Authentication** ← **Emails** (Email Templates) ← افتحي **Magic Link** وبعدين **Confirm signup**، وفي الاتنين:
+      - Subject: `كود الدخول لصوتي: {{ .Token }}`
+      - Body (امسحي اللي فيه والزقي ده):
+        ```html
+        <h2>كود الدخول لـ صوتي</h2>
+        <p>الكود بتاعك: <strong style="font-size:28px;letter-spacing:4px">{{ .Token }}</strong></p>
+        <p>Your Soty sign-in code: <strong>{{ .Token }}</strong></p>
+        <p>اكتبيه في التطبيق. لو مطلبتيش الكود ده، تجاهلي الإيميل.</p>
+        ```
+      - **Save**.
+   3. **Authentication** ← **URL Configuration**: **Site URL** = `https://mariamaher86-svg.github.io/soty/`، وفي **Redirect URLs** ← **Add URL** نفس اللينك ← **Save**.
+5. **ربط التطبيق بالمشروع:** فوق في المشروع دوسي **Connect** (أو **Project Settings** ← **Data API** و**API Keys**) وانسخي:
+   - **Project URL** (زي `https://abcd….supabase.co`)
+   - **Publishable key** (بيبدأ بـ `sb_publishable_`؛ أو في النسخ القديمة **anon public**). **مش** الـ secret / service_role.
+
+   افتحي `src/config/supabase.ts` وحطيهم بين العلامتين:
+   ```ts
+   export const SUPABASE_URL = 'https://abcd….supabase.co';
+   export const SUPABASE_ANON_KEY = 'sb_publishable_…';
+   ```
+   (المفتاح ده عام بطبيعته — قواعد الأمان في الداتابيز هي اللي بتحمي البيانات، فعادي يبقى في الكود.)
+6. **النشر:**
+   ```bash
+   git -C C:/MariaMaher/Projects/Soty add -A
+   git -C C:/MariaMaher/Projects/Soty commit -m "Account and sync with Supabase"
+   git -C C:/MariaMaher/Projects/Soty push
+   ```
+   استني **Actions** يبقى ✅، وبعدين افتحي التطبيق ودوسي «حدّثي».
+7. **في التطبيق:** ⚙️ **المزيد** ← **حسابي والمزامنة** ← إيميلك ← «ابعتيلي كود» ← اكتبي الكود اللي جالك ← «ادخلي». وبعدين نفس الحاجة على اللابتوب بنفس الإيميل، وهتلاقي بياناتك هناك.
+
+**ملاحظات:**
+- المشروع المجاني **بيتوقف لوحده** لو مفيش استخدام حوالي أسبوع. لو التطبيق قال إن السيرفر مش بيرد: ادخلي supabase.com ← المشروع ← **Restore project**. بياناتك بتفضل.
+- الإيميل المجاني اللي جوه Supabase بيبعت **عدد قليل من الإيميلات في الساعة** (تلاقيه في Authentication ← Rate Limits) — كفاية لاستخدامك. لو قال "اتبعت إيميلات كتير"، استني شوية.
+- المساحة المجانية لملفات الصوت **١ جيجا**؛ صفحة «حسابي» بتوريكي المستخدم. ملف واحد لحد ٥٠ ميجا.
+- لو الشبكة قافلة Supabase (زي ما netlify.app كان مقفول)، صفحة «حسابي» بتقول كده على طول، والتطبيق شغال عادي.
+
+*Her steps: supabase.com (GitHub sign-in) → project `soty`, Frankfurt → SQL Editor: run `supabase/schema.sql` → Auth: Email provider on, OTP length 6, Magic Link + Confirm signup templates show `{{ .Token }}`, Site URL + redirect = the GitHub Pages URL → copy Project URL + publishable key into `src/config/supabase.ts` (or set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` at build) → push → in the app: المزيد → حسابي. Free projects pause after ~1 week idle (Dashboard → Restore). Built-in email has a low hourly limit.*
 
 ## التنقل / Navigation
 
@@ -210,6 +264,8 @@ git push
 - `src/lib/keyDetect.ts` — key/maqam detection (tested); `src/components/KeyDetector.tsx` — its screen.
 - `src/lib/scale.ts` — scale/maqam membership for YouTube mode (tested); `src/lib/youtube.ts` — link parsing (tested); `src/audio/youtubePlayer.ts` — IFrame API loader.
 - `src/lib/samples.ts` — pitch-shift ratio, nearest-sample choice, steady-part detection and trimming (tested).
+- `src/lib/sync.ts` — sync engine (tested with an in-memory backend): per-key plan (only one side changed → it wins; both → merge results/songs like a backup merge, else newest `updated_at`), file plan with deletion marks, 6-digit code input, config check, reachability, debounced retrying scheduler. `src/sync/account.ts` (email-code sign-in, triggers: start / return to the app / online / local change), `src/sync/supabaseBackend.ts`, `src/pages/AccountPage.tsx`, `supabase/schema.sql`.
+- `src/lib/lifecycle.ts` — leaving / returning to the app (tested): on hidden every mic, metronome, choir and car session stops and the busy state is remembered; on return the page is remounted fresh if something was running ("رجعتي… دوسي ابدئي تاني"); on the next tap `checkAudioOnTap()` (audio.ts) resumes the AudioContext or replaces it (iOS can leave it "interrupted" with a resume() that never finishes). Samples are checked to be audio, decoded with a time limit, retried, and a failed load isn't cached (plain-tone fallback with a note).
 - `src/lib/precache.ts` — precache list, cache version, generated service worker (tested); `src/audio/offline.ts` — registration + update prompt.
 - `src/lib/noise.ts` — room-noise level and the voice threshold it sets (tested); `src/components/NoiseCheck.tsx`.
 - `src/lib/choir.ts` — choir modes/gains, sync, part keys, part octave (tested); `src/pages/ChoirPage.tsx` — parts panel + synced player (one `<audio>` + GainNode per part).

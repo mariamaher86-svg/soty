@@ -48,6 +48,12 @@ export function PianoPage() {
   const [success, setSuccess] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
   const [tally, setTally] = useState({ tries: 0, hits: 0 });
+  // the link to #/piano/vocalise also works while the piano page is already open
+  useEffect(() => {
+    const onHash = () => window.location.hash.endsWith('/vocalise') && void switchMode('vocalise');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  });
   const st = useRef({ target: null as number | null, quarter: 0 as Quarter, success: false, playing: false, last: 0, attempt: [] as number[], open: false });
   const hold = useRef(new HoldTracker(PIANO_TOLERANCE, PIANO_HOLD_MS));
   const raw = useRef<number[]>([]);

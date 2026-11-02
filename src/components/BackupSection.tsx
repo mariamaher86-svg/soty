@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ErrorText, Options } from './ui';
+import { g } from '../lib/gender';
 import { HomeScreenNote } from './BeforeTraining';
 import { Help } from './Help';
 import { showWelcomeAgain } from './Welcome';
@@ -143,7 +144,9 @@ export function BackupSection() {
     <div className="panel">
       <h2>💾 بياناتك</h2>
       <Help id="backup" />
-      <p className="hint">بياناتك على الجهاز ده بس. صدّريها في ملف عشان تنقليها أو تحتفظي بنسخة. الملف فيه تسجيلات صوتك، فخليه ليكي إنتي بس.</p>
+      <p className="hint">
+        بياناتك متخزنة على الجهاز ده، ولو {g('داخلة', 'داخل')} من <a href="#/account">👤 حسابي</a> كمان في السيرفر بتاعك. وده ملف نسخة احتياطية في إيدك: صدّريها عشان تنقليها أو تحتفظي بنسخة. الملف فيه تسجيلات صوتك، فخليه ليكي إنتي بس.
+      </p>
       <Options label="📲 الآيفون والشاشة الرئيسية">
         <HomeScreenNote />
       </Options>

@@ -40,6 +40,22 @@ interface Data {
 
 const KEY = 'soty.v1';
 
+/** When each app key was last changed on this device (for sync: "newest wins" and what to send). Not an app key itself. */
+export const DIRTY_KEY = 'sotysync.dirty';
+export const LOCAL_CHANGE_EVENT = 'soty-local-change';
+
+function markDirty(keys: string[]) {
+  try {
+    const d = JSON.parse(localStorage.getItem(DIRTY_KEY) ?? '{}') as Record<string, number>;
+    const now = Date.now();
+    for (const k of keys) d[k] = now;
+    localStorage.setItem(DIRTY_KEY, JSON.stringify(d));
+  } catch {
+    // storage blocked
+  }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(LOCAL_CHANGE_EVENT));
+}
+
 function load(): Data {
   try {
     const raw = localStorage.getItem(KEY);
@@ -56,6 +72,7 @@ function load(): Data {
 function save(d: Data) {
   try {
     localStorage.setItem(KEY, JSON.stringify(d));
+    markDirty([KEY]);
   } catch {
     // private mode / quota: keep working without saving
   }
@@ -121,7 +138,9 @@ export function getPref(key: string): string | null {
 
 export function setPref(key: string, value: string) {
   try {
+    if (localStorage.getItem('soty.pref.' + key) === value) return;
     localStorage.setItem('soty.pref.' + key, value);
+    markDirty(['soty.pref.' + key]);
   } catch {
     // ignore
   }
@@ -146,6 +165,7 @@ export function applyAppStorage(set: Record<string, string>, remove: string[]): 
   try {
     for (const k of remove) localStorage.removeItem(k);
     for (const [k, v] of Object.entries(set)) localStorage.setItem(k, v);
+    markDirty(Object.keys(set));
     return true;
   } catch {
     return false;
@@ -206,6 +226,7 @@ export function getSongs(): import('./songs').Song[] {
 export function saveSongs(list: import('./songs').Song[]): boolean {
   try {
     localStorage.setItem(SONGS_KEY, JSON.stringify(list));
+    markDirty([SONGS_KEY]);
     return true;
   } catch {
     return false;

@@ -9,7 +9,7 @@ export const TABS = [
 ] as const;
 
 /** Where each page belongs: its tab (highlighted) and where "back" goes. Pages not listed are exercises. */
-const PARENT: Record<string, string> = { path: '', more: '', badges: 'more', guide: 'more', teacher: 'more' };
+const PARENT: Record<string, string> = { path: '', more: '', badges: 'more', guide: 'more', teacher: 'more', account: 'more' };
 
 /** The tab a route belongs to ('more' = none). */
 export function tabOf(route: string): string {

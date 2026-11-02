@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ErrorText, Page, Stat } from '../components/ui';
 import { LoopPractice, type LoopSource } from '../components/LoopPractice';
-import { audioContext } from '../audio/audio';
+import { audioContext, onContextChange } from '../audio/audio';
+import { lifecycle } from '../lib/lifecycle';
 import { deleteSongFile, getSongFile, mb, saveSongFile } from '../audio/songFiles';
 import { CHOIR_MODES, mixGains, modeGains, PART_PRESETS, partKey, partOctave, syncTarget, type ChoirMode, type SongPart } from '../lib/choir';
 import { extractPitchCurve, toMono } from '../lib/pitchTrack';
@@ -127,6 +128,9 @@ export function ChoirPage({ song }: { song: Song }) {
   const [err, setErr] = useState('');
   const [playingAll, setPlayingAll] = useState(false);
   const sourceRef = useRef<LoopSource | null>(null);
+  // the mix lives in the AudioContext: when iOS forces a new one (after the app was in the background), rebuild it
+  const [ctxEpoch, setCtxEpoch] = useState(0);
+  useEffect(() => onContextChange(() => setCtxEpoch((e) => e + 1)), []);
 
   // load every part: an audio element each, mixed through Web Audio for per-part volume
   useEffect(() => {
@@ -163,9 +167,23 @@ export function ChoirPage({ song }: { song: Song }) {
     return () => {
       cancelled = true;
     };
-  }, [song.id]);
+  }, [song.id, ctxEpoch]);
 
   useEffect(() => () => loaded?.forEach((p) => p.el.pause()), [loaded]);
+  // leaving the app pauses every part (and the page knows it's not playing any more)
+  useEffect(
+    () =>
+      lifecycle.onHidden(() => {
+        loaded?.forEach((p) => p.el.pause());
+        setPlayingAll(false);
+      }),
+    [loaded],
+  );
+  useEffect(() => {
+    if (!playingAll) return;
+    lifecycle.setBusy('choir', true);
+    return () => lifecycle.setBusy('choir', false);
+  }, [playingAll]);
 
   // apply the mode / sliders / mute to the mix
   const gains = mixGains(modeGains(mode, parts.length, mine, repeat), volumes, muted);

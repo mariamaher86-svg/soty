@@ -2,6 +2,7 @@
 
 import { audioContext } from './audio';
 import { scheduleBeats, type ScheduledBeat } from '../lib/rhythm';
+import { lifecycle } from '../lib/lifecycle';
 
 const LOOKAHEAD = 0.12; // s scheduled ahead
 const TICK_MS = 25;
@@ -43,7 +44,12 @@ export function startMetronome(opts: { bpm: number; beatsPerBar: number; delay?:
       if (opts.maxBeats !== undefined && b.index >= opts.maxBeats) {
         if (!ended) {
           ended = true;
-          timers.push(window.setTimeout(() => opts.onEnd?.(), Math.max(0, (b.time - ac.currentTime) * 1000)));
+          timers.push(
+            window.setTimeout(() => {
+              opts.onEnd?.();
+              stop();
+            }, Math.max(0, (b.time - ac.currentTime) * 1000)),
+          );
         }
         clearInterval(interval);
         return;
@@ -55,12 +61,18 @@ export function startMetronome(opts: { bpm: number; beatsPerBar: number; delay?:
     index = r.nextIndex;
   };
   const interval = window.setInterval(tick, TICK_MS);
-  tick();
-  return {
-    start,
-    stop: () => {
-      clearInterval(interval);
-      timers.forEach(clearTimeout);
-    },
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(interval);
+    timers.forEach(clearTimeout);
+    lifecycle.setBusy('metronome', false);
+    unsubHide();
   };
+  // in the background the timers freeze; coming back it would fire a burst of late clicks — so it just stops
+  const unsubHide = lifecycle.onHidden(stop);
+  lifecycle.setBusy('metronome', true);
+  tick();
+  return { start, stop };
 }

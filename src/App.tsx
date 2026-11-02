@@ -28,6 +28,10 @@ import { HomePage } from './pages/HomePage';
 import { MorePage } from './pages/MorePage';
 import { Icon } from './components/Icons';
 import { applyTheme } from './lib/theme';
+import { lifecycle } from './lib/lifecycle';
+import { onSoundFallback } from './audio/sound';
+import { SYNC_APPLIED_EVENT } from './sync/account';
+import { AccountPage } from './pages/AccountPage';
 import { backOf, TABS, tabOf } from './lib/nav';
 import { genderChosen } from './lib/gender';
 import { useOnline, useUpdateWaiting } from './audio/offline';
@@ -60,6 +64,7 @@ const PAGES = [
   { id: 'dynamics', icon: '🎚️', title: 'العالي والواطي', desc: '', el: DynamicsPage, home: false },
   { id: 'game', icon: '🎮', title: 'لعبة الصوت', desc: '', el: GamePage, home: false },
   { id: 'more', icon: '⚙️', title: 'المزيد', desc: '', el: MorePage, home: false },
+  { id: 'account', icon: '👤', title: 'حسابي', desc: '', el: AccountPage, home: false },
 ];
 
 function titleOf(route: string): string {
@@ -77,6 +82,32 @@ export default function App() {
   const [page, setPage] = useState(currentPage);
   const [welcome, setWelcome] = useState(shouldShowWelcome);
   const [askGender, setAskGender] = useState(() => !genderChosen());
+  // bumped when she comes back to the app while something was playing/listening: the page starts fresh
+  const [epoch, setEpoch] = useState(0);
+  const [stopped, setStopped] = useState(false);
+
+  // data that arrived from the other device: apply the settings, and show it (unless an exercise is running)
+  useEffect(() => {
+    const onSync = (e: Event) => {
+      const keys = (e as CustomEvent<string[]>).detail ?? [];
+      if (keys.includes('soty.pref.theme')) applyTheme();
+      if (lifecycle.isBusy()) return;
+      if (keys.includes('soty.pref.gender')) return window.location.reload(); // the wording switches on a fresh page
+      setEpoch((x) => x + 1);
+    };
+    window.addEventListener(SYNC_APPLIED_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_APPLIED_EVENT, onSync);
+  }, []);
+
+  useEffect(
+    () =>
+      lifecycle.onVisible(({ wasBusy }) => {
+        if (!wasBusy) return;
+        setEpoch((e) => e + 1);
+        setStopped(true);
+      }),
+    [],
+  );
 
   useEffect(() => {
     applyTheme();
@@ -120,7 +151,7 @@ export default function App() {
           <Icon name="more" />
         </a>
       </header>
-      <main>{active ? <active.el key={active.id} /> : <HomePage askGender={askGender} onGenderDone={() => setAskGender(false)} />}</main>
+      <main>{active ? <active.el key={`${active.id}-${epoch}`} /> : <HomePage askGender={askGender} onGenderDone={() => setAskGender(false)} />}</main>
       <nav className="tabbar" aria-label="الأقسام">
         {TABS.map((t) => (
           <a key={t.id || 'home'} className={'tab' + (t.id === tab ? ' on' : '')} href={`#/${t.id}`} aria-current={t.id === tab ? 'page' : undefined}>
@@ -129,16 +160,40 @@ export default function App() {
           </a>
         ))}
       </nav>
-      <Toasts />
+      <Toasts stopped={stopped} onCloseStopped={() => setStopped(false)} />
     </div>
   );
 }
 
 /** Messages that float above the tab bar: update ready, offline, a new badge. */
-function Toasts() {
+function Toasts({ stopped = false, onCloseStopped }: { stopped?: boolean; onCloseStopped?: () => void }) {
+  const [fallback, setFallback] = useState(false);
+  useEffect(() => onSoundFallback(() => setFallback(true)), []);
+  // the "we stopped" note goes away by itself
+  useEffect(() => {
+    if (!stopped) return;
+    const t = setTimeout(() => onCloseStopped?.(), 7000);
+    return () => clearTimeout(t);
+  }, [stopped]);
   return (
     <div className="toasts" aria-live="polite">
       <UpdateBanner />
+      {stopped && (
+        <div className="toast" role="status">
+          <span>رجعتي 👋 وقفنا اللي كان شغال لما خرجتي من التطبيق — دوسي ابدئي تاني.</span>
+          <button className="link" onClick={onCloseStopped} aria-label="إخفاء">
+            ✕
+          </button>
+        </div>
+      )}
+      {fallback && (
+        <div className="toast offline-banner" role="status">
+          <span>أصوات البيانو متحمّلتش — بنعزف صوت بسيط بداله لحد ما تتحمّل.</span>
+          <button className="link" onClick={() => setFallback(false)} aria-label="إخفاء">
+            ✕
+          </button>
+        </div>
+      )}
       <Celebration />
     </div>
   );

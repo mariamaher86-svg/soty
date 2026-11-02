@@ -90,3 +90,8 @@ export function trimWithFades(samples: Float32Array, sampleRate: number, startSe
   }
   return out;
 }
+
+/** A sample response we can decode: OK, and not an HTML/text page (e.g. a cached 404 or the app shell). */
+export function looksLikeAudio(ok: boolean, contentType: string | null): boolean {
+  return ok && !/html|text\/|json/.test(contentType ?? '');
+}

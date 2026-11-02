@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nearestSample, playbackRate, steadySegment, trimWithFades, trustedFreq, tuneSampleSet } from './samples';
+import { nearestSample, playbackRate, steadySegment, trimWithFades, trustedFreq, tuneSampleSet, looksLikeAudio } from './samples';
 import { centsBetween, midiToFreq, shiftCents } from './music';
 import type { PitchPoint } from './compare';
 
@@ -95,5 +95,15 @@ describe('trimWithFades', () => {
     expect(y[0]).toBe(0);
     expect(y[250]).toBe(1);
     expect(y[499]).toBeLessThan(0.2);
+  });
+});
+
+describe('sample responses', () => {
+  it('only real audio is decoded (a cached HTML page or a 404 falls back to the plain tone)', () => {
+    expect(looksLikeAudio(true, 'audio/mpeg')).toBe(true);
+    expect(looksLikeAudio(true, null)).toBe(true); // some servers send no type: try to decode
+    expect(looksLikeAudio(true, 'text/html; charset=utf-8')).toBe(false);
+    expect(looksLikeAudio(false, 'audio/mpeg')).toBe(false);
+    expect(looksLikeAudio(true, 'application/json')).toBe(false);
   });
 });

@@ -9,9 +9,10 @@ import { notePlaying } from '../lib/activity';
 import { listTeacher, onTeacherChange } from './teacherStore';
 import { freqToMidi, midiToFreq } from '../lib/music';
 import { syllableFor } from '../lib/teacherCheck';
-import { nearestSample, playbackRate, steadySegment, tuneSampleSet } from '../lib/samples';
+import { looksLikeAudio, nearestSample, playbackRate, steadySegment, tuneSampleSet } from '../lib/samples';
 import { extractPitchCurve } from '../lib/pitchTrack';
 import { getPref, setPref } from '../lib/storage';
+import { lifecycle } from '../lib/lifecycle';
 
 /** piano · voice (teacher recording, else choir) · syllable (a recorded voice singing دو ري مي on each note) */
 export type SoundKind = 'piano' | 'voice' | 'syllable';
@@ -40,11 +41,40 @@ const sets: Record<string, Promise<Loaded[]>> = {};
 let teacher: Promise<Loaded[]> | null = null;
 onTeacherChange(() => (teacher = null));
 
-function getManifest() {
+const fallbackSubs = new Set<() => void>();
+/** The app shows a small note when the samples couldn't load and a plain tone is played instead. */
+export function onSoundFallback(cb: () => void): () => void {
+  fallbackSubs.add(cb);
+  return () => void fallbackSubs.delete(cb);
+}
+
+function getManifest(): Promise<Record<string, number[]>> {
   manifest ??= fetch(SAMPLES_URL + 'manifest.json')
-    .then((r) => (r.ok ? r.json() : {}))
-    .catch(() => ({}));
+    .then((r) => {
+      if (!r.ok || /html/.test(r.headers.get('content-type') ?? '')) throw new Error('no manifest');
+      return r.json() as Promise<Record<string, number[]>>;
+    })
+    .catch(() => {
+      manifest = null; // try again next time instead of remembering the failure
+      return {};
+    });
   return manifest;
+}
+
+/** One sample file: must really be audio (not a cached HTML page), decoded within a time limit, retried once. */
+async function fetchSample(url: string): Promise<AudioBuffer | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await settleWithin(fetch(url), 10000);
+      if (!res || !looksLikeAudio(res.ok, res.headers.get('content-type'))) continue;
+      const bytes = await res.arrayBuffer();
+      const buffer = await settleWithin(audioContext().decodeAudioData(bytes), 10000);
+      if (buffer) return buffer;
+    } catch {
+      // retry
+    }
+  }
+  return null;
 }
 
 /** Pitch of the steady part of a buffer, measured with pitchy (null if unclear). */
@@ -56,19 +86,14 @@ async function measure(buffer: AudioBuffer): Promise<number | null> {
 /** Load a bundled sample set (MIDI numbers listed in manifest.json). */
 function loadSet(name: 'piano' | 'choir'): Promise<Loaded[]> {
   sets[name] ??= getManifest().then(async (m) => {
-    const ac = audioContext();
     const notes = m[name] ?? [];
-    const decoded = await Promise.all(
-      notes.map(async (midi) => {
-        try {
-          const res = await fetch(`${SAMPLES_URL}${name}/${midi}.mp3`);
-          return { midi, buffer: await ac.decodeAudioData(await res.arrayBuffer()) };
-        } catch {
-          return null;
-        }
-      }),
-    );
-    const ok = decoded.filter((x): x is { midi: number; buffer: AudioBuffer } => x !== null);
+    const decoded = await Promise.all(notes.map(async (midi) => ({ midi, buffer: await fetchSample(`${SAMPLES_URL}${name}/${midi}.mp3`) })));
+    const ok = decoded.filter((x): x is { midi: number; buffer: AudioBuffer } => x.buffer !== null);
+    if (!ok.length) {
+      delete sets[name]; // nothing loaded: don't remember the failure, try again on the next note
+      fallbackSubs.forEach((cb) => cb());
+      return [];
+    }
     const nominal = ok.map((x) => midiToFreq(x.midi));
     // The piano is tuned to A440; sung samples are measured so pitch-shifting starts from their real pitch.
     const freqs = name === 'piano' ? nominal : tuneSampleSet(nominal, await Promise.all(ok.map((x) => measure(x.buffer))));
@@ -124,10 +149,12 @@ export function preloadSounds() {
 export async function playNote(freq: number, seconds = 1.2, kind: SoundKind = getSoundKind()): Promise<void> {
   audioContext(); // resume inside the tap, before any await (iOS only allows that during the gesture)
   notePlaying(1);
+  lifecycle.setBusy('note', true);
   try {
     await settleWithin(playNoteRaw(freq, seconds, kind), (seconds + 6) * 1000); // +6 s for loading the samples the first time
   } finally {
     notePlaying(-1);
+    lifecycle.setBusy('note', false);
   }
 }
 

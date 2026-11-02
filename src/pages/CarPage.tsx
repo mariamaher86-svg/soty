@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { lifecycle } from '../lib/lifecycle';
 import { Page } from '../components/ui';
 import { playNote } from '../audio/sound';
 import { audioContext } from '../audio/audio';
@@ -67,6 +68,13 @@ export function CarPage() {
       // not supported / not allowed
     }
   };
+
+  // a running session counts as busy: leaving the app stops it (the page starts fresh on return)
+  useEffect(() => {
+    if (state !== 'running') return;
+    lifecycle.setBusy('car', true);
+    return () => lifecycle.setBusy('car', false);
+  }, [state]);
 
   useEffect(
     () => () => {

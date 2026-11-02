@@ -3,8 +3,16 @@
 
 import { PitchDetector } from 'pitchy';
 import { micListening } from '../lib/activity';
+import { contextAction, lifecycle, type CtxState } from '../lib/lifecycle';
 
 let ctx: AudioContext | null = null;
+const ctxSubs = new Set<(ac: AudioContext) => void>();
+
+/** Features that keep nodes in the context (the choir mix) rebuild them when it's replaced. */
+export function onContextChange(cb: (ac: AudioContext) => void): () => void {
+  ctxSubs.add(cb);
+  return () => void ctxSubs.delete(cb);
+}
 
 /**
  * Safari's Audio Session API (iOS 17+): "playback" lets the app's sounds play even in silent mode;
@@ -19,14 +27,43 @@ function setAudioSession(type: 'playback' | 'play-and-record' | 'auto') {
   }
 }
 
+/** A fresh context (decoded sample buffers are not tied to a context, so they keep working). */
+function replaceContext(): AudioContext {
+  const old = ctx;
+  setAudioSession('playback');
+  ctx = new AudioContext();
+  if (old && old.state !== 'closed') void old.close().catch(() => {});
+  if (old) for (const cb of [...ctxSubs]) cb(ctx);
+  return ctx;
+}
+
 export function audioContext(): AudioContext {
-  if (!ctx) {
-    setAudioSession('playback');
-    ctx = new AudioContext();
-  }
+  if (!ctx || ctx.state === 'closed') return replaceContext();
   // "interrupted" is Safari's state after a phone call / screen lock / leaving the page
   if (ctx.state !== 'running') void ctx.resume().catch(() => {});
   return ctx;
+}
+
+/**
+ * Called inside a tap: resume the context, or replace it when it can't come back (after the app was in the
+ * background, or "interrupted"/"closed"). If a resume doesn't take within a moment, the next tap replaces it.
+ */
+export function checkAudioOnTap(): AudioContext {
+  const action = contextAction((ctx?.state ?? null) as CtxState, lifecycle.audioStale);
+  lifecycle.audioChecked();
+  if (action === 'create' || action === 'recreate') {
+    const fresh = replaceContext();
+    void fresh.resume().catch(() => {}); // still inside the tap, so iOS lets it start
+    return fresh;
+  }
+  const ac = ctx!;
+  if (action === 'resume') {
+    void ac.resume().catch(() => {});
+    setTimeout(() => {
+      if (ac === ctx && ac.state !== 'running') lifecycle.audioStale = true;
+    }, 800);
+  }
+  return ac;
 }
 
 /**
@@ -36,7 +73,7 @@ export function audioContext(): AudioContext {
  */
 export function installAudioUnlock() {
   const unlock = () => {
-    const ac = audioContext();
+    const ac = checkAudioOnTap();
     if (ac.state === 'running') return;
     try {
       const b = ac.createBuffer(1, 1, 22050);
@@ -88,7 +125,7 @@ export interface Mic {
  * Browser processing (echo cancel, noise suppression, auto gain) is turned off because it
  * distorts pitch and loudness.
  */
-export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9): Promise<Mic> {
+export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9, onLost?: () => void): Promise<Mic> {
   setAudioSession('play-and-record');
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
@@ -104,6 +141,7 @@ export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9)
   let raf = 0;
   let stopped = false;
   micListening(1);
+  lifecycle.setBusy('mic', true);
 
   const tick = () => {
     if (stopped) return;
@@ -118,17 +156,31 @@ export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9)
   };
   raf = requestAnimationFrame(tick);
 
-  return {
-    stream,
-    stop: () => {
-      if (!stopped) micListening(-1);
-      stopped = true;
-      cancelAnimationFrame(raf);
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    micListening(-1);
+    lifecycle.setBusy('mic', false);
+    unsubHide();
+    cancelAnimationFrame(raf);
+    try {
       source.disconnect();
-      stream.getTracks().forEach((t) => t.stop());
-      setAudioSession('playback');
-    },
+    } catch {
+      // already gone with its context
+    }
+    stream.getTracks().forEach((t) => t.stop());
+    setAudioSession('playback');
   };
+  // iOS takes the mic away in the background (or a call ends the track): release it and say so
+  const lost = () => {
+    if (stopped) return;
+    stop();
+    onLost?.();
+  };
+  const unsubHide = lifecycle.onHidden(lost);
+  stream.getTracks().forEach((t) => t.addEventListener('ended', lost));
+
+  return { stream, stop };
 }
 
 /** Arabic message for a failed getUserMedia call. */

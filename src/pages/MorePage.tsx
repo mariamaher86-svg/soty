@@ -11,6 +11,7 @@ const THEMES: { id: Theme; ar: string }[] = [
 ];
 
 const LINKS = [
+  { href: '#/account', icon: '👤', ar: 'حسابي والمزامنة' },
   { href: '#/badges', icon: '🏆', ar: 'الأوسمة والتحدي' },
   { href: '#/guide', icon: '📖', ar: 'دليل الاستخدام' },
   { href: '#/teacher', icon: '🎙️', ar: 'تسجيل صوت المعلم' },

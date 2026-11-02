@@ -1,6 +1,16 @@
 // Song library audio files in IndexedDB (so she doesn't pick the file again every time). Never throws.
 
 import { isQuotaError, run } from './db';
+import { getPref, setPref } from '../lib/storage';
+import { isMarkedDeleted, setFileState } from '../lib/sync';
+
+/** Synced deletions: one mark per song key ("songs/<key>"), whatever the file name. */
+function markFile(key: string, deleted: boolean) {
+  const path = `songs/${encodeURIComponent(key)}`;
+  const cur = getPref('sync.files.state');
+  if (!deleted && !isMarkedDeleted(cur, path)) return;
+  setPref('sync.files.state', setFileState(cur, path, deleted));
+}
 
 export interface StoredSongFile {
   songId: string;
@@ -14,6 +24,7 @@ export type SaveFileResult = { ok: true } | { ok: false; error: string };
 export async function saveSongFile(f: StoredSongFile): Promise<SaveFileResult> {
   try {
     await run('songFiles', 'readwrite', (s) => s.put(f));
+    markFile(f.songId, false);
     return { ok: true };
   } catch (e) {
     if (isQuotaError(e)) return { ok: false, error: 'المساحة المتاحة للتطبيق على الجهاز ده خلصت. امسحي ملف صوت أغنية تانية (أو استخدمي لينك يوتيوب بدل الملف) وجربي تاني.' };
@@ -32,6 +43,7 @@ export async function getSongFile(songId: string): Promise<StoredSongFile | null
 export async function deleteSongFile(songId: string): Promise<void> {
   try {
     await run('songFiles', 'readwrite', (s) => s.delete(songId));
+    markFile(songId, true);
   } catch {
     // ignore
   }

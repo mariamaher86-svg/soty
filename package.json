@@ -13,6 +13,7 @@
     "fetch-samples": "node scripts/fetch-samples.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.118.0",
     "pitchy": "^4.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

@@ -30,7 +30,8 @@ export type HelpKey =
   | 'teacher'
   | 'badges'
   | 'progress'
-  | 'backup';
+  | 'backup'
+  | 'account';
 
 export interface HelpEntry {
   title: string;
@@ -258,6 +259,24 @@ export const HELP: Record<HelpKey, HelpEntry> = {
     tips: ['في «خيارات»: السرعة (بطيء / متوسط / سريع)، و«تطلع لوحدها» — بعد كل مرة ٨٠٪ أو أكتر بتطلع نص تون لحد آخر المنطقة المريحة وبعدين تنزل، زي الإحماء الحقيقي.', 'لو بتغني أوطى أو أعلى بأوكتاف بتطلع ملحوظة.'],
     sound: true,
   },
+  account: {
+    title: '👤 حسابي والمزامنة',
+    href: '#/account',
+    what: 'اختياري: دخول بالإيميل (كود من ٦ أرقام) — بياناتك بتتحفظ كمان في مشروع Supabase بتاعك وتتزامن بين الموبايل واللابتوب.',
+    why: 'لو الموبايل اتغيّر أو المتصفح مسح البيانات، كل حاجة بترجع. والتمرين على اللابتوب بيبان على الموبايل.',
+    steps: [
+      'في ⚙️ المزيد ← «حسابي والمزامنة»: الإيميل، وبعدين «ابعتيلي كود».',
+      'الكود اللي جه على الإيميل (٦ أرقام) — بيتكتب في التطبيق، من غير فتح أي لينك — وبعدين «ادخلي».',
+      'أول مرة بيجمع اللي على الجهاز مع اللي على السيرفر من غير ما يمسح حاجة، وبعدها بيزامن لوحده.',
+      '«🔄 زامني دلوقتي» في أي وقت.',
+    ],
+    numbers: ['"آخر مزامنة" = آخر مرة الجهاز ده اتفق مع السيرفر. المساحة: من ١ جيجا مجاني لملفات الصوت.'],
+    tips: [
+      'من غير نت: التطبيق شغال عادي، والمزامنة بتستنى لحد ما النت يرجع.',
+      'تأخير الإيقاع ومستوى دوشة المكان بيفضلوا لكل جهاز لوحده (كل موبايل غير التاني).',
+      '«امسحي بياناتي من السيرفر» بيمسح السيرفر بس، واللي على الجهاز بيفضل.',
+    ],
+  },
   warmup: {
     title: '🌿 الإحماء',
     href: '#/warmup',
@@ -475,7 +494,7 @@ export const HELP: Record<HelpKey, HelpEntry> = {
     title: '💾 البيانات (النسخة الاحتياطية)',
     href: '#/more',
     what: 'في ⚙️ المزيد (الترس فوق): كل البيانات في ملف واحد، للنقل لجهاز تاني أو للاحتفاظ بيها.',
-    why: 'البيانات متخزنة في المتصفح بس؛ الملف ده بيحميها لو اتمسحت أو الموبايل اتغيّر.',
+    why: 'البيانات متخزنة على الجهاز (ولو داخلة بحساب، كمان في السيرفر بتاعك)؛ الملف ده نسخة إضافية في إيدك.',
     steps: [
       'اختيار نسخة كاملة أو «بدون ملفات الصوت» (أصغر).',
       'زرار «⬇️ صدّري بياناتك» — الملف بيتحفظ في التنزيلات، أو «📤 ابعتيه لنفسك».',
@@ -488,7 +507,7 @@ export const HELP: Record<HelpKey, HelpEntry> = {
 };
 
 /** Order for the user guide (learning order). */
-export const GUIDE_ORDER: HelpKey[] = ['path', 'lessons', 'exercises', 'findnote', 'vocalise', 'warmup', 'ear', 'piano', 'piano-vocalise', 'match', 'game', 'range', 'intervals', 'rhythm', 'maqam', 'breath', 'dynamics', 'songs', 'sing-file', 'sing-youtube', 'loop', 'learn', 'choir', 'key', 'teacher', 'car', 'badges', 'progress', 'backup'];
+export const GUIDE_ORDER: HelpKey[] = ['path', 'lessons', 'exercises', 'findnote', 'vocalise', 'warmup', 'ear', 'piano', 'piano-vocalise', 'match', 'game', 'range', 'intervals', 'rhythm', 'maqam', 'breath', 'dynamics', 'songs', 'sing-file', 'sing-youtube', 'loop', 'learn', 'choir', 'key', 'teacher', 'car', 'badges', 'progress', 'backup', 'account'];
 
 /** Labels quoted «like this» in an entry. */
 export function quotedLabels(e: HelpEntry): string[] {
