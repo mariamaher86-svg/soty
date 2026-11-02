@@ -53,7 +53,7 @@ function markDirty(keys: string[]) {
   } catch {
     // storage blocked
   }
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(LOCAL_CHANGE_EVENT));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(LOCAL_CHANGE_EVENT, { detail: keys }));
 }
 
 function load(): Data {

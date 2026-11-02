@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { ErrorText, Page } from '../components/ui';
-import { deleteServerData, sendCode, signOut, syncNow, useAccount, verifyCode } from '../sync/account';
-import { FREE_STORAGE_BYTES, normalizeOtp, validEmail } from '../lib/sync';
+import { createAccount, deleteServerData, forgotPassword, signIn, signOut, syncNow, useAccount } from '../sync/account';
+import { FREE_STORAGE_BYTES } from '../lib/sync';
+import { signInProblem, signUpProblem } from '../lib/auth';
 import { mb } from '../audio/songFiles';
 import { getPref, setPref } from '../lib/storage';
 import { g } from '../lib/gender';
 
 const when = (ms: number) => new Date(ms).toLocaleString('ar-EG', { weekday: 'long', hour: 'numeric', minute: '2-digit' });
 
-/** "👤 حسابي" (under المزيد): optional email-code sign-in, so the data also lives in her own Supabase project. */
+/** "👤 حسابي" (under المزيد): optional email + password sign-in, so the data also lives in her own Supabase project. */
 export function AccountPage() {
   const a = useAccount();
   const [email, setEmail] = useState(() => getPref('sync.email') ?? '');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -38,53 +41,78 @@ export function AccountPage() {
     return !e;
   };
 
+  const ready = !(mode === 'in' ? signInProblem(email, password) : signUpProblem(email, password, confirm));
+  const switchMode = (m: 'in' | 'up') => {
+    setMode(m);
+    setErr('');
+    setSent(false);
+    setConfirm('');
+  };
+
   if (!a.user)
     return (
       <Page help="account" title="👤 حسابي" intro="اختياري: بإيميلك، بياناتك بتتحفظ كمان في السيرفر بتاعك وتتزامن بين الموبايل واللابتوب.">
         <div className="panel">
-          {step === 'email' ? (
-            <>
-              <label className="field">
-                <span>إيميلك</span>
-                <input type="email" inputMode="email" autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
-              </label>
-              <button
-                className="big primary"
-                disabled={busy || !validEmail(email)}
-                onClick={() =>
-                  void run(async () => {
-                    setPref('sync.email', email.trim());
-                    const e = await sendCode(email);
-                    if (!e) setStep('code');
-                    return e;
-                  })
+          <div className="choices" role="group" aria-label="دخول أو حساب جديد">
+            <button className={mode === 'in' ? 'chip active' : 'chip'} onClick={() => switchMode('in')}>
+              دخول
+            </button>
+            <button className={mode === 'up' ? 'chip active' : 'chip'} onClick={() => switchMode('up')}>
+              إنشاء حساب
+            </button>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!ready) return;
+              void run(async () => {
+                setPref('sync.email', email.trim());
+                const e = await (mode === 'in' ? signIn(email, password) : createAccount(email, password, confirm));
+                if (!e) {
+                  setPassword('');
+                  setConfirm('');
+                  setMode('in');
                 }
-              >
-                {busy ? '…' : 'ابعتيلي كود'}
-              </button>
-            </>
-          ) : (
-            <>
-              <p>
-                بعتنا كود من ٦ أرقام على <b dir="ltr">{email}</b>. اكتبيه هنا (من غير ما تفتحي أي لينك).
-              </p>
+                return e;
+              });
+            }}
+          >
+            <label className="field">
+              <span>إيميلك</span>
+              <input type="email" inputMode="email" autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
+            </label>
+            <label className="field">
+              <span>{mode === 'in' ? 'الباسورد' : 'باسورد جديد (٨ حروف أو أرقام على الأقل)'}</span>
+              <input type="password" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </label>
+            {mode === 'up' && (
               <label className="field">
-                <span>الكود</span>
-                <input className="otp" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={12} value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
+                <span>اكتبي الباسورد تاني</span>
+                <input type="password" autoComplete="new-password" dir="ltr" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
               </label>
-              <button className="big primary" disabled={busy || !normalizeOtp(code)} onClick={() => void run(() => verifyCode(email, normalizeOtp(code)!))}>
-                {busy ? '…' : 'ادخلي'}
-              </button>
-              <div className="row">
-                <button className="link" disabled={busy} onClick={() => void run(() => sendCode(email))}>
-                  ابعتي كود تاني
-                </button>
-                <button className="link" disabled={busy} onClick={() => setStep('email')}>
-                  غيّري الإيميل
-                </button>
-              </div>
-            </>
+            )}
+            <button type="submit" className="big primary" disabled={busy || !ready}>
+              {busy ? '…' : mode === 'in' ? 'دخول' : 'إنشاء حساب'}
+            </button>
+          </form>
+          {mode === 'in' && (
+            <button
+              className="link"
+              disabled={busy}
+              onClick={() => {
+                setSent(false);
+                void run(async () => {
+                  const e = await forgotPassword(email);
+                  if (!e) setSent(true);
+                  return e;
+                });
+              }}
+            >
+              نسيتي الباسورد؟
+            </button>
           )}
+          {sent && <p className="ok-text">✔ بعتنا لينك على إيميلك. هيفتح في Safari: اختاري باسورد جديد، وبعدين ارجعي هنا وادخلي بيه.</p>}
+          {mode === 'up' && <p className="hint">اكتبي إيميلك مظبوط: هو اللي بيوصله لينك «نسيتي الباسورد؟».</p>}
           <ErrorText text={err} />
           {a.message && <p className="warn-text">{a.message}</p>}
         </div>

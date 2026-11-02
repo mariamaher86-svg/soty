@@ -2876,13 +2876,6 @@ input[type='range'] {
   color: var(--text);
 }
 
-.field input.otp {
-  font-size: 1.6rem;
-  letter-spacing: 0.4em;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
 .usage {
   height: 10px;
   border-radius: var(--r-pill);

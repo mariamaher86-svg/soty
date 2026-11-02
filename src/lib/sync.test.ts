@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  changeNeedsSync,
   checkReachable,
   createScheduler,
   FILE_STATE_KEY,
   hashString,
   mergeDoc,
-  normalizeOtp,
   planDocs,
   planFiles,
   readConfig,
@@ -16,7 +16,6 @@ import {
   syncableKey,
   syncDocs,
   teacherPath,
-  validEmail,
   type Dirty,
   type LocalDocs,
   type RemoteDoc,
@@ -118,6 +117,13 @@ describe('what is synced', () => {
     expect(syncableKey('soty.pref.rhythm.latency')).toBe(false); // each phone has its own delay
     expect(syncableKey('soty.pref.noise.rms')).toBe(false);
     expect(syncableKey('sb-abc-auth-token')).toBe(false);
+  });
+  it("a sync's own bookkeeping never starts another sync (no endless loop)", () => {
+    expect(changeNeedsSync(['soty.pref.sync.last'])).toBe(false);
+    expect(changeNeedsSync(['soty.pref.rhythm.latency', 'soty.pref.noise.rms'])).toBe(false);
+    expect(changeNeedsSync(['soty.v1'])).toBe(true);
+    expect(changeNeedsSync(['soty.pref.sync.last', 'soty.pref.gender'])).toBe(true);
+    expect(changeNeedsSync([])).toBe(false);
   });
   it('the format is the backup format: a backup restored with "merge" and a sync combine results the same way', () => {
     const a = data(result(1), result(2));
@@ -243,16 +249,7 @@ describe('song files: one per song', () => {
   });
 });
 
-describe('sign-in input and config', () => {
-  it('the email code: 6 digits, Arabic digits and spaces are fine', () => {
-    expect(normalizeOtp('123456')).toBe('123456');
-    expect(normalizeOtp(' ١٢٣ ٤٥٦ ')).toBe('123456');
-    expect(normalizeOtp('12345')).toBeNull();
-    expect(normalizeOtp('1234567')).toBeNull();
-    expect(normalizeOtp('12a456')).toBeNull();
-    expect(validEmail('maria@example.com')).toBe(true);
-    expect(validEmail('maria@')).toBe(false);
-  });
+describe('config', () => {
   it('missing or broken config = sync not set up (everything else keeps working)', () => {
     expect(readConfig('', '')).toBeNull();
     expect(readConfig('https://abc.supabase.co', '')).toBeNull();

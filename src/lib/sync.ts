@@ -16,6 +16,9 @@ export const DEVICE_ONLY = new Set(['soty.pref.noise.rms', 'soty.pref.rhythm.lat
 
 export const syncableKey = (k: string) => k.startsWith(APP_KEY_PREFIX) && !DEVICE_ONLY.has(k);
 
+/** Only a change that would actually be sent asks for a sync. (A sync writes its own "last synced" time: that must not start another one.) */
+export const changeNeedsSync = (keys: string[]) => keys.some(syncableKey);
+
 export interface RemoteDoc {
   key: string;
   value: string;
@@ -224,21 +227,6 @@ export function setFileState(stateRaw: string | null, path: string, deleted: boo
 }
 
 export const FREE_STORAGE_BYTES = 1024 * 1024 * 1024;
-
-// ---- sign-in input
-
-const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
-const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
-
-/** The 6-digit code from the email, typed with Arabic or Latin digits and maybe spaces; null if it isn't 6 digits. */
-export function normalizeOtp(input: string): string | null {
-  const latin = input.replace(/[٠-٩۰-۹]/g, (d) => String(AR_DIGITS.indexOf(d) >= 0 ? AR_DIGITS.indexOf(d) : FA_DIGITS.indexOf(d))).replace(/[\s-]/g, '');
-  return /^\d{6}$/.test(latin) ? latin : null;
-}
-
-export function validEmail(s: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
-}
 
 // ---- retrying when offline / the network fails
 

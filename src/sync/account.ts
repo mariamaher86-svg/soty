@@ -1,10 +1,11 @@
-// "حسابي": optional email-code sign-in to her own Supabase project, and keeping this device in sync with it.
+// "حسابي": optional email + password sign-in to her own Supabase project, and keeping this device in sync with it.
 // Without the config (src/config/supabase.ts) or without signing in, nothing here runs and the app is device-only.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { supabaseKey, supabaseUrl } from '../config/supabase';
 import {
+  changeNeedsSync,
   checkReachable,
   createScheduler,
   FILE_STATE_KEY,
@@ -20,6 +21,7 @@ import {
   type SyncBackend,
   type SyncSummary,
 } from '../lib/sync';
+import { BLOCKED_MSG, forgotFlow, newPasswordFlow, OFFLINE_MSG, parseAuthHash, signInFlow, signInProblem, signUpFlow, signUpProblem, validEmail, type AuthBackend, type AuthResult } from '../lib/auth';
 import { DIRTY_KEY, getPref, getSongs, LOCAL_CHANGE_EVENT, readAppStorage, setPref } from '../lib/storage';
 import { base64ToFloat, floatToBase64, type TeacherBackup } from '../lib/backup';
 import { songIdOfKey } from '../lib/choir';
@@ -80,7 +82,9 @@ function client(): Promise<SupabaseClient> {
   if (!syncConfig) return Promise.reject(new Error('not configured'));
   clientP ??= import('@supabase/supabase-js').then(({ createClient }) => {
     const sb = createClient(syncConfig.url, syncConfig.key, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'sotysync.auth' },
+      // implicit flow: the recovery link opens in Safari, while a PKCE verifier would sit in the home-screen app's storage.
+      // The URL is read only on the recovery landing, so normal "#/…" routes are never touched.
+      auth: { persistSession: true, autoRefreshToken: true, flowType: 'implicit', detectSessionInUrl: parseAuthHash(window.location.hash)?.kind === 'recovery', storageKey: 'sotysync.auth' },
     });
     sb.auth.onAuthStateChange((_e, session) => {
       const u = session?.user;
@@ -97,38 +101,65 @@ async function reachable(): Promise<Reach> {
   return r;
 }
 
-const REACH_MSG: Record<Exclude<Reach, 'ok'>, string> = {
-  offline: 'مفيش إنترنت دلوقتي — هنزامن أول ما النت يرجع. التطبيق شغال عادي.',
-  blocked: 'السيرفر مش بيرد من الشبكة دي (ممكن تكون قافلاه) — جربي واي فاي تاني أو بيانات الموبايل. التطبيق شغال عادي.',
-};
-
-function authError(e: { message?: string; status?: number; code?: string } | null): string {
-  const m = (e?.message ?? '').toLowerCase();
-  if (e?.status === 429 || m.includes('rate')) return 'اتبعت إيميلات كتير الساعة دي — استني شوية وجربي تاني.';
-  if (m.includes('expired') || m.includes('invalid') || m.includes('token')) return 'الكود غلط أو وقته خلص — اطلبي كود جديد.';
-  if (m.includes('fetch') || m.includes('network')) return REACH_MSG.blocked;
-  return 'حصلت مشكلة: ' + (e?.message ?? '');
-}
+const REACH_MSG: Record<Exclude<Reach, 'ok'>, string> = { offline: OFFLINE_MSG, blocked: BLOCKED_MSG };
 
 // ---- sign in / out
 
-/** Step 1: email a 6-digit code (an account is created the first time). */
-export async function sendCode(email: string): Promise<string | null> {
-  if ((await reachable()) !== 'ok') return REACH_MSG[state.reach as 'offline' | 'blocked'];
-  const sb = await client();
-  const { error } = await sb.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } });
-  return error ? authError(error) : null;
+async function auth(): Promise<AuthBackend> {
+  return (await client()).auth as unknown as AuthBackend;
 }
 
-/** Step 2: the code from the email. Signed in for good on this device; then the first sync merges both sides. */
-export async function verifyCode(email: string, code: string): Promise<string | null> {
-  const sb = await client();
-  const { data, error } = await sb.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' });
-  if (error || !data.user) return authError(error);
-  set({ user: { id: data.user.id, email: data.user.email ?? email } });
+/** Runs an auth call only if the server is reachable, so a blocked network says so instead of hanging. */
+async function whenReachable<T>(f: () => Promise<T>): Promise<T | string> {
+  const r = await reachable();
+  return r === 'ok' ? f() : REACH_MSG[r];
+}
+
+function signedIn(result: AuthResult): string | null {
+  if (!result.user) return result.error;
+  set({ user: { id: result.user.id, email: result.user.email ?? '' } });
   localStorage.removeItem(META_KEY); // a fresh merge with what's on the server
-  await syncNow();
+  void syncNow();
   return null;
+}
+
+/** "إنشاء حساب": with "Confirm email" off she's signed in right away. */
+export async function createAccount(email: string, password: string, confirm: string): Promise<string | null> {
+  const problem = signUpProblem(email, password, confirm);
+  if (problem) return problem;
+  const r = await whenReachable(async () => signUpFlow(await auth(), email, password, confirm));
+  return typeof r === 'string' ? r : signedIn(r);
+}
+
+/** "دخول": stays signed in on this device; the first sync merges both sides. */
+export async function signIn(email: string, password: string): Promise<string | null> {
+  const problem = signInProblem(email, password);
+  if (problem) return problem;
+  const r = await whenReachable(async () => signInFlow(await auth(), email, password));
+  return typeof r === 'string' ? r : signedIn(r);
+}
+
+/** "نسيتي الباسورد؟": Supabase emails a link that opens RecoveryPage. */
+export async function forgotPassword(email: string): Promise<string | null> {
+  if (!validEmail(email)) return forgotFlow({} as AuthBackend, email);
+  return whenReachable(async () => forgotFlow(await auth(), email));
+}
+
+/** On the recovery screen: did supabase-js accept the link's tokens? (false = expired, used, or not set up) */
+export async function recoveryReady(): Promise<boolean> {
+  try {
+    const { data } = await (await client()).auth.getSession();
+    return !!data.session;
+  } catch {
+    return false;
+  }
+}
+
+/** Save the new password, then leave this browser signed out: she signs in from the app's own icon. */
+export async function saveNewPassword(password: string, confirm: string): Promise<string | null> {
+  const e = await newPasswordFlow(await auth(), password, confirm);
+  if (!e) await (await client()).auth.signOut({ scope: 'local' }).catch(() => {});
+  return e;
 }
 
 export async function signOut() {
@@ -282,5 +313,7 @@ export function installSync() {
     .catch(() => {});
   lifecycle.onVisible(() => state.user && scheduler.request());
   window.addEventListener('online', () => state.user && scheduler.online());
-  window.addEventListener(LOCAL_CHANGE_EVENT, () => state.user && scheduler.request());
+  window.addEventListener(LOCAL_CHANGE_EVENT, (e) => {
+    if (state.user && changeNeedsSync((e as CustomEvent<string[]>).detail ?? [])) scheduler.request();
+  });
 }

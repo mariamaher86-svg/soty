@@ -91,7 +91,9 @@ export default function App() {
     const onSync = (e: Event) => {
       const keys = (e as CustomEvent<string[]>).detail ?? [];
       if (keys.includes('soty.pref.theme')) applyTheme();
-      if (lifecycle.isBusy()) return;
+      // not during an exercise, and not while she's typing in a form (a remount would lose what she wrote)
+      const typing = document.activeElement?.matches('input, textarea, select');
+      if (lifecycle.isBusy() || typing) return;
       if (keys.includes('soty.pref.gender')) return window.location.reload(); // the wording switches on a fresh page
       setEpoch((x) => x + 1);
     };

@@ -125,7 +125,7 @@ git push
 
 ## 👤 حسابي والمزامنة (Supabase) / Account and sync
 
-اختياري: من غير حساب التطبيق شغال زي ما هو، والبيانات على الجهاز بس. بالحساب (دخول بكود من ٦ أرقام على الإيميل)، البيانات بتتحفظ كمان في **مشروع Supabase بتاعك إنتي** وتتزامن بين الموبايل واللابتوب: النتايج، المسار، الإعدادات، بنت/ولد، المستويات، الدروس، الأوسمة، مكتبة الأغاني، والجمل — وملفات الصوت (تسجيلات المعلم، "دو ري مي"، الأغاني، أصوات الكورال) لو «زامني ملفات الصوت» شغالة. تأخير الإيقاع ومستوى دوشة المكان بيفضلوا لكل جهاز لوحده.
+اختياري: من غير حساب التطبيق شغال زي ما هو، والبيانات على الجهاز بس. بالحساب (دخول بالإيميل والباسورد)، البيانات بتتحفظ كمان في **مشروع Supabase بتاعك إنتي** وتتزامن بين الموبايل واللابتوب: النتايج، المسار، الإعدادات، بنت/ولد، المستويات، الدروس، الأوسمة، مكتبة الأغاني، والجمل — وملفات الصوت (تسجيلات المعلم، "دو ري مي"، الأغاني، أصوات الكورال) لو «زامني ملفات الصوت» شغالة. تأخير الإيقاع ومستوى دوشة المكان بيفضلوا لكل جهاز لوحده.
 *Optional. Local-first: localStorage/IndexedDB stay the working store; when signed in, each app key is also a row in her own Supabase project (table `soty_docs`, same format as the backup file; results/songs merge like a backup "merge", other keys newest-wins), audio files go to a private bucket under `{user_id}/…`. Row Level Security: each user only sees their own rows/files. Only the project URL and the publishable/anon key are in the app (public by design; the service-role key is never used).*
 
 ### خطواتك (مرة واحدة)
@@ -137,19 +137,9 @@ git push
    - Region: **Central EU (Frankfurt)** — الأقرب لمصر.
    - **Create new project** واستني دقيقتين.
 3. **الجداول والأمان:** من الشمال **SQL Editor** ← **New query** ← افتحي ملف `supabase/schema.sql` من فولدر المشروع، انسخي كل اللي فيه والزقيه ← **Run**. لازم يطلع **Success**. (لو شغلتيه مرتين مفيش مشكلة.)
-4. **الدخول بالكود:**
-   1. **Authentication** ← **Sign In / Providers** ← **Email**: اتأكدي إن **Enable Email provider** شغال، و**Email OTP Length = 6** ← **Save**.
-   2. **Authentication** ← **Emails** (Email Templates) ← افتحي **Magic Link** وبعدين **Confirm signup**، وفي الاتنين:
-      - Subject: `كود الدخول لصوتي: {{ .Token }}`
-      - Body (امسحي اللي فيه والزقي ده):
-        ```html
-        <h2>كود الدخول لـ صوتي</h2>
-        <p>الكود بتاعك: <strong style="font-size:28px;letter-spacing:4px">{{ .Token }}</strong></p>
-        <p>Your Soty sign-in code: <strong>{{ .Token }}</strong></p>
-        <p>اكتبيه في التطبيق. لو مطلبتيش الكود ده، تجاهلي الإيميل.</p>
-        ```
-      - **Save**.
-   3. **Authentication** ← **URL Configuration**: **Site URL** = `https://mariamaher86-svg.github.io/soty/`، وفي **Redirect URLs** ← **Add URL** نفس اللينك ← **Save**.
+4. **الدخول بالإيميل والباسورد:**
+   1. **Authentication** ← **Sign In / Providers** ← **Email**: اتأكدي إن **Enable Email provider** شغال، واقفلي **Confirm email** ← **Save**. (كده إنشاء الحساب مش محتاج إيميل، ومفيش أي تعديل في قوالب الإيميلات.)
+   2. **Authentication** ← **URL Configuration**: **Site URL** = `https://mariamaher86-svg.github.io/soty/`، وفي **Redirect URLs** ← **Add URL** نفس اللينك ← **Save**. (ده عشان لينك «نسيتي الباسورد؟».)
 5. **ربط التطبيق بالمشروع:** فوق في المشروع دوسي **Connect** (أو **Project Settings** ← **Data API** و**API Keys**) وانسخي:
    - **Project URL** (زي `https://abcd….supabase.co`)
    - **Publishable key** (بيبدأ بـ `sb_publishable_`؛ أو في النسخ القديمة **anon public**). **مش** الـ secret / service_role.
@@ -167,15 +157,16 @@ git push
    git -C C:/MariaMaher/Projects/Soty push
    ```
    استني **Actions** يبقى ✅، وبعدين افتحي التطبيق ودوسي «حدّثي».
-7. **في التطبيق:** ⚙️ **المزيد** ← **حسابي والمزامنة** ← إيميلك ← «ابعتيلي كود» ← اكتبي الكود اللي جالك ← «ادخلي». وبعدين نفس الحاجة على اللابتوب بنفس الإيميل، وهتلاقي بياناتك هناك.
+7. **في التطبيق:** ⚙️ **المزيد** ← **حسابي والمزامنة** ← «إنشاء حساب» ← إيميلك وباسورد (٨ حروف أو أرقام على الأقل) مرتين. وبعدين على اللابتوب: «دخول» بنفس الإيميل والباسورد، وهتلاقي بياناتك هناك.
+8. **بعد ما تعملي حسابك (مهم):** **Authentication** ← **Sign In / Providers** ← اقفلي **Allow new users to sign up** ← **Save**. الكود على GitHub عام، فمن غير الخطوة دي أي حد ممكن يعمل حساب في مشروعك ويستهلك مساحتك المجانية (من غير ما يشوف بياناتك). الدخول بحسابك بيفضل شغال عادي.
 
 **ملاحظات:**
 - المشروع المجاني **بيتوقف لوحده** لو مفيش استخدام حوالي أسبوع. لو التطبيق قال إن السيرفر مش بيرد: ادخلي supabase.com ← المشروع ← **Restore project**. بياناتك بتفضل.
-- الإيميل المجاني اللي جوه Supabase بيبعت **عدد قليل من الإيميلات في الساعة** (تلاقيه في Authentication ← Rate Limits) — كفاية لاستخدامك. لو قال "اتبعت إيميلات كتير"، استني شوية.
+- **نسيتي الباسورد؟** بيبعت لينك على الإيميل، وبيفتح في Safari: اختاري باسورد جديد هناك، وبعدين ارجعي للتطبيق من الأيقونة وادخلي بيه. إيميل Supabase المجاني بيبعت عدد قليل في الساعة، وبس لإيميلات أعضاء المشروع — يعني استخدمي لحسابك نفس إيميل حساب Supabase، وإلا اللينك مش هيوصل.
 - المساحة المجانية لملفات الصوت **١ جيجا**؛ صفحة «حسابي» بتوريكي المستخدم. ملف واحد لحد ٥٠ ميجا.
 - لو الشبكة قافلة Supabase (زي ما netlify.app كان مقفول)، صفحة «حسابي» بتقول كده على طول، والتطبيق شغال عادي.
 
-*Her steps: supabase.com (GitHub sign-in) → project `soty`, Frankfurt → SQL Editor: run `supabase/schema.sql` → Auth: Email provider on, OTP length 6, Magic Link + Confirm signup templates show `{{ .Token }}`, Site URL + redirect = the GitHub Pages URL → copy Project URL + publishable key into `src/config/supabase.ts` (or set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` at build) → push → in the app: المزيد → حسابي. Free projects pause after ~1 week idle (Dashboard → Restore). Built-in email has a low hourly limit.*
+*Her steps: supabase.com (GitHub sign-in) → project `soty`, Frankfurt → SQL Editor: run `supabase/schema.sql` → Auth: Email provider on, **Confirm email off**, Site URL + redirect = the GitHub Pages URL → copy Project URL + publishable key into `src/config/supabase.ts` (or set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` at build) → push → in the app: المزيد → حسابي → create account (email + password) → then turn off "Allow new users to sign up" (the repo is public). Forgot password: Supabase's default recovery email (no template edit; the built-in sender only delivers to project members' addresses, at a low hourly limit); the link opens in Safari with its tokens in the URL hash (implicit flow, not PKCE, because a verifier would be in the home-screen app's storage), which `parseAuthHash` catches before the router and shows `RecoveryPage`. Free projects pause after ~1 week idle (Dashboard → Restore).*
 
 ## التنقل / Navigation
 
@@ -264,7 +255,7 @@ git push
 - `src/lib/keyDetect.ts` — key/maqam detection (tested); `src/components/KeyDetector.tsx` — its screen.
 - `src/lib/scale.ts` — scale/maqam membership for YouTube mode (tested); `src/lib/youtube.ts` — link parsing (tested); `src/audio/youtubePlayer.ts` — IFrame API loader.
 - `src/lib/samples.ts` — pitch-shift ratio, nearest-sample choice, steady-part detection and trimming (tested).
-- `src/lib/sync.ts` — sync engine (tested with an in-memory backend): per-key plan (only one side changed → it wins; both → merge results/songs like a backup merge, else newest `updated_at`), file plan with deletion marks, 6-digit code input, config check, reachability, debounced retrying scheduler. `src/sync/account.ts` (email-code sign-in, triggers: start / return to the app / online / local change), `src/sync/supabaseBackend.ts`, `src/pages/AccountPage.tsx`, `supabase/schema.sql`.
+- `src/lib/sync.ts` — sync engine (tested with an in-memory backend): per-key plan (only one side changed → it wins; both → merge results/songs like a backup merge, else newest `updated_at`), file plan with deletion marks, config check, reachability, debounced retrying scheduler. `src/lib/auth.ts` — email + password flows behind a small interface, Arabic error messages, recovery-hash detection (tested). `src/sync/account.ts` (sign-in, triggers: start / return to the app / online / local change), `src/sync/supabaseBackend.ts`, `src/pages/AccountPage.tsx`, `src/pages/RecoveryPage.tsx`, `supabase/schema.sql`.
 - `src/lib/lifecycle.ts` — leaving / returning to the app (tested): on hidden every mic, metronome, choir and car session stops and the busy state is remembered; on return the page is remounted fresh if something was running ("رجعتي… دوسي ابدئي تاني"); on the next tap `checkAudioOnTap()` (audio.ts) resumes the AudioContext or replaces it (iOS can leave it "interrupted" with a resume() that never finishes). Samples are checked to be audio, decoded with a time limit, retried, and a failed load isn't cached (plain-tone fallback with a note).
 - `src/lib/precache.ts` — precache list, cache version, generated service worker (tested); `src/audio/offline.ts` — registration + update prompt.
 - `src/lib/noise.ts` — room-noise level and the voice threshold it sets (tested); `src/components/NoiseCheck.tsx`.
