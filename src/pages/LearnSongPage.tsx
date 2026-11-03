@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { ErrorText, Page } from '../components/ui';
 import { audioLoopSource, LoopPractice, type LoopSource } from '../components/LoopPractice';
 import { SoundPicker } from '../components/SoundPicker';
-import { audioContext } from '../audio/audio';
 import { getSongFile } from '../audio/songFiles';
 import { playNote } from '../audio/sound';
 import { adjustPhrase, phraseNotes, splitPhrases, type Phrase } from '../lib/phrases';
-import { extractPitchCurve, toMono } from '../lib/pitchTrack';
+import { analyzeSong, curveKey, releaseAudio } from '../audio/songAnalysis';
 import { scoreRepeat } from '../lib/loop';
 import { midiToFreq, quarterToneName } from '../lib/music';
 import { getPref, setPref } from '../lib/storage';
@@ -47,19 +46,22 @@ export function LearnSongPage({ song }: { song: Song }) {
   const [loading, setLoading] = useState(0);
   const source = useRef<LoopSource | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const stopListen = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    let gone = false;
     void (async () => {
       const f = await getSongFile(song.id);
       if (!f) return setErr('ملف الأغنية مش موجود على الجهاز ده. ضيفيه من «✏️ تعديل» في صفحة الأغنية.');
+      if (gone) return;
       const file = new File([f.bytes], f.name, { type: f.type });
       const el = new Audio(URL.createObjectURL(file));
       audio.current = el;
       try {
         setLoading(0.01);
-        const buf = await audioContext().decodeAudioData(await file.arrayBuffer());
-        const c = await extractPitchCurve(toMono(buf), buf.sampleRate, {}, (p) => setLoading(Math.max(0.01, p)));
-        source.current = audioLoopSource(el, buf.duration);
+        const { curve: c, duration } = await analyzeSong(curveKey(song.id, file.size, file.name), () => file.arrayBuffer(), (p) => !gone && setLoading(Math.max(0.01, p)));
+        if (gone) return;
+        source.current = audioLoopSource(el, duration);
         setCurve(c);
         setProgress((p) => {
           if (p && p.phrases.length) return p;
@@ -72,7 +74,11 @@ export function LearnSongPage({ song }: { song: Song }) {
       }
       setLoading(0);
     })();
-    return () => audio.current?.pause();
+    return () => {
+      gone = true;
+      releaseAudio(audio.current);
+      audio.current = null;
+    };
   }, [song.id]);
 
   const update = (p: Progress) => {
@@ -102,12 +108,15 @@ export function LearnSongPage({ song }: { song: Song }) {
     el.preservesPitch = true;
     el.currentTime = ph.start;
     void el.play();
+    // one listener at a time: tapping again replaces it
+    if (stopListen.current) el.removeEventListener('timeupdate', stopListen.current);
     const stopAt = () => {
       if (el.currentTime >= ph.end) {
         el.pause();
         el.removeEventListener('timeupdate', stopAt);
       }
     };
+    stopListen.current = stopAt;
     el.addEventListener('timeupdate', stopAt);
   };
 

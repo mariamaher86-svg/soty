@@ -17,6 +17,7 @@ export function click(time: number, accent: boolean, volume = 1) {
   gain.gain.linearRampToValueAtTime((accent ? 0.6 : 0.35) * volume, time + 0.002);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
   osc.connect(gain).connect(ac.destination);
+  osc.onended = () => gain.disconnect();
   osc.start(time);
   osc.stop(time + 0.06);
 }

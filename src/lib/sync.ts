@@ -12,7 +12,7 @@ const SONGS_KEY = 'soty.songs';
 export const FILE_STATE_KEY = 'soty.pref.sync.files.state';
 
 /** Settings that belong to one device (its mic, its delay, its own choices about data use). */
-export const DEVICE_ONLY = new Set(['soty.pref.noise.rms', 'soty.pref.rhythm.latency', 'soty.pref.tips.hidden', 'soty.pref.sync.audio', 'soty.pref.sync.last']);
+export const DEVICE_ONLY = new Set(['soty.pref.noise.rms', 'soty.pref.rhythm.latency', 'soty.pref.tips.hidden', 'soty.pref.sync.audio', 'soty.pref.sync.last', 'soty.pref.pending.result']);
 
 export const syncableKey = (k: string) => k.startsWith(APP_KEY_PREFIX) && !DEVICE_ONLY.has(k);
 
@@ -227,6 +227,28 @@ export function setFileState(stateRaw: string | null, path: string, deleted: boo
 }
 
 export const FREE_STORAGE_BYTES = 1024 * 1024 * 1024;
+/** The free plan's limit per file (schema.sql sets the same on the bucket): bigger files stay on the device. */
+export const MAX_SYNC_FILE_BYTES = 50 * 1024 * 1024;
+const FILES_EVERY_MS = 15 * 60 * 1000;
+
+/** Results sync right away; the (heavier) audio files only when asked, on the first sync, or every 15 minutes. */
+export function shouldSyncFiles(allowed: boolean, manual: boolean, lastAt: number | null, now: number): boolean {
+  return allowed && (manual || lastAt === null || now - lastAt >= FILES_EVERY_MS);
+}
+
+/** What's on this device, from the song records: names and sizes, with no audio read into memory. */
+export function localSongFiles(songs: { id: string; file?: { name: string; size: number }; parts?: { id: string; file: { name: string; size: number } }[] }[], storedKeys: string[], maxBytes = MAX_SYNC_FILE_BYTES): { key: string; path: string; size: number }[] {
+  const have = new Set(storedKeys);
+  const out: { key: string; path: string; size: number }[] = [];
+  const add = (key: string, f: { name: string; size: number }) => {
+    if (have.has(key) && f.size <= maxBytes) out.push({ key, path: songFilePath(key, f.name), size: f.size });
+  };
+  for (const s of songs) {
+    if (s.file) add(s.id, s.file);
+    for (const p of s.parts ?? []) add(`${s.id}::${p.id}`, p.file);
+  }
+  return out;
+}
 
 // ---- retrying when offline / the network fails
 
@@ -241,7 +263,7 @@ export interface Scheduler {
 }
 
 /** Debounced sync with retries after failures (30 s, 2 min, 10 min, then every 10 min). Changes made meanwhile wait. */
-export function createScheduler(run: () => Promise<void>, opts: { debounceMs?: number; retryMs?: number[]; setTimer?: (f: () => void, ms: number) => unknown; clearTimer?: (t: unknown) => void } = {}): Scheduler {
+export function createScheduler(run: () => Promise<void>, opts: { debounceMs?: number; retryMs?: number[]; canRun?: () => boolean; deferMs?: number; setTimer?: (f: () => void, ms: number) => unknown; clearTimer?: (t: unknown) => void } = {}): Scheduler {
   const debounce = opts.debounceMs ?? 3000;
   const retries = opts.retryMs ?? [30000, 120000, 600000];
   const setT = opts.setTimer ?? ((f, ms) => setTimeout(f, ms));
@@ -260,6 +282,11 @@ export function createScheduler(run: () => Promise<void>, opts: { debounceMs?: n
   const go = async () => {
     if (running) {
       dirty = true; // a change during a sync: sync again after it
+      return;
+    }
+    if (opts.canRun && !opts.canRun()) {
+      dirty = true; // she's singing: wait, and don't count it as a failure
+      schedule(opts.deferMs ?? 20000);
       return;
     }
     running = true;

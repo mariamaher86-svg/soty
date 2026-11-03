@@ -164,6 +164,7 @@ export function AccountPage() {
           زامني ملفات الصوت (تسجيلات المعلم، "دو ري مي"، ملفات الأغاني وأصوات الكورال)
         </label>
         <p className="hint">اقفليها لو على باقة موبايل. النتايج والإعدادات بتتزامن في الحالتين.</p>
+        {a.filesTooBig > 0 && <p className="warn-text">{a.filesTooBig} ملف أكبر من ٥٠ ميجا مش بيتزامن (حد الخطة المجانية) وبيفضل على الجهاز ده.</p>}
         {a.filesBytes !== null && (
           <>
             <div className="usage" role="img" aria-label="المساحة المستخدمة">

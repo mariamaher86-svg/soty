@@ -44,11 +44,22 @@ export async function deleteSongFile(songId: string): Promise<void> {
   try {
     await run('songFiles', 'readwrite', (s) => s.delete(songId));
     markFile(songId, true);
+    await run('curves', 'readwrite', (s) => s.delete(IDBKeyRange.bound(`${songId}|`, `${songId}|\uffff`)));
   } catch {
     // ignore
   }
 }
 
+/** Which song keys have a stored file — without loading any audio into memory. */
+export async function listSongFileKeys(): Promise<string[]> {
+  try {
+    return (await run<IDBValidKey[]>('songFiles', 'readonly', (s) => s.getAllKeys())).map(String);
+  } catch {
+    return [];
+  }
+}
+
+/** Every file, with all its audio, in memory at once: only for a backup she asked for. */
 export async function listSongFiles(): Promise<StoredSongFile[]> {
   try {
     return await run<StoredSongFile[]>('songFiles', 'readonly', (s) => s.getAll());

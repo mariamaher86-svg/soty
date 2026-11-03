@@ -5,12 +5,15 @@ import { audioContext, onContextChange } from '../audio/audio';
 import { lifecycle } from '../lib/lifecycle';
 import { deleteSongFile, getSongFile, mb, saveSongFile } from '../audio/songFiles';
 import { CHOIR_MODES, mixGains, modeGains, PART_PRESETS, partKey, partOctave, syncTarget, type ChoirMode, type SongPart } from '../lib/choir';
-import { extractPitchCurve, toMono } from '../lib/pitchTrack';
+import { analyzeSong, curveKey, releaseAudio } from '../audio/songAnalysis';
 import { splitPhrases, type Phrase } from '../lib/phrases';
 import { scoreRepeat } from '../lib/loop';
 import { getPref, getSongs, saveSongs, setPref } from '../lib/storage';
 import type { PitchPoint } from '../lib/compare';
 import type { Song } from '../lib/songs';
+
+/** Several players at once: above this the phone may struggle. */
+const BIG_PARTS_BYTES = 150 * 1024 * 1024;
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -71,6 +74,7 @@ export function ChoirPartsPanel({ song, onChanged }: { song: Song; onChanged: ()
         <input type="file" accept="audio/*" disabled={busy} onChange={(e) => void add(e.target.files?.[0])} />
       </label>
       <ErrorText text={err} />
+      {parts.reduce((n, p) => n + p.file.size, 0) > BIG_PARTS_BYTES && <p className="warn-text">ملفات الأصوات دي كبيرة ({mb(parts.reduce((n, p) => n + p.file.size, 0))}) وممكن تتقل على الموبايل. لو أمكن استخدمي mp3 بدل wav.</p>}
       {parts.length >= 2 && (
         <a className="button-link primary" href={`#/songs/${song.id}/choir`}>
           🎼 تدريب صوتك في الكورال
@@ -84,6 +88,16 @@ interface Loaded {
   part: SongPart;
   el: HTMLAudioElement;
   gain: GainNode;
+}
+
+/** Let go of a part's player, its file and its place in the mix. */
+function releasePart(p: Loaded) {
+  releaseAudio(p.el);
+  try {
+    p.gain.disconnect();
+  } catch {
+    // its context is already gone
+  }
 }
 
 /** All parts as one loop source: her part leads, the others follow it (re-synced when they drift). */
@@ -152,15 +166,15 @@ export function ChoirPage({ song }: { song: Song }) {
         ac.createMediaElementSource(el).connect(gain).connect(ac.destination);
         out.push({ part, el, gain });
         try {
-          const buf = await ac.decodeAudioData(f.bytes.slice(0));
-          dur = Math.max(dur, buf.duration);
-          const c = await extractPitchCurve(toMono(buf), buf.sampleRate);
-          if (!cancelled) setCurves((cur) => cur.map((x, i) => (parts[i].id === part.id ? c : x)));
+          // one part at a time, once ever (kept in the cache)
+          const a = await analyzeSong(curveKey(partKey(song.id, part.id), f.bytes.byteLength, f.name), async () => f.bytes);
+          dur = Math.max(dur, a.duration);
+          if (!cancelled) setCurves((cur) => cur.map((x, i) => (parts[i].id === part.id ? a.curve : x)));
         } catch {
           // a part that can't be analysed still plays
         }
       }
-      if (cancelled) return out.forEach((p) => p.el.pause());
+      if (cancelled) return out.forEach(releasePart);
       setLoaded(out);
       setDuration(dur);
     })();
@@ -169,7 +183,7 @@ export function ChoirPage({ song }: { song: Song }) {
     };
   }, [song.id, ctxEpoch]);
 
-  useEffect(() => () => loaded?.forEach((p) => p.el.pause()), [loaded]);
+  useEffect(() => () => loaded?.forEach(releasePart), [loaded]);
   // leaving the app pauses every part (and the page knows it's not playing any more)
   useEffect(
     () =>

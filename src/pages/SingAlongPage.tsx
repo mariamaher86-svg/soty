@@ -6,9 +6,9 @@ import { scoreRepeat } from '../lib/loop';
 import { ErrorText, LiveNote, Page, SaveRecording, Stat } from '../components/ui';
 import { PitchGraph } from '../components/PitchGraph';
 import { useMic } from '../audio/useMic';
-import { audioContext } from '../audio/audio';
 import { compareCurves, type CompareResult, type PitchPoint } from '../lib/compare';
-import { extractPitchCurve, toMono } from '../lib/pitchTrack';
+import { CurveLog } from '../lib/curveCap';
+import { analyzeSong, curveKey, releaseAudio } from '../audio/songAnalysis';
 import { addResult, getPref, getSongs, setPref } from '../lib/storage';
 import { getSongFile } from '../audio/songFiles';
 import type { Song } from '../lib/songs';
@@ -37,22 +37,33 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
   const player = useRef<HTMLAudioElement | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const recOffset = useRef(0); // seconds of recording before the music started
-  const frames = useRef<PitchPoint[]>([]);
+  const frames = useRef(new CurveLog<PitchPoint>());
   const recAudio = useRef<HTMLAudioElement>(null);
+  const loopEl = useRef<HTMLAudioElement | null>(null);
+  const mounted = useRef(true);
 
   const { frame, error, start, stop } = useMic((f) => {
     const p = player.current;
     if (!p || p.paused) return;
-    frames.current.push({ t: Math.max(0, p.currentTime - LATENCY), freq: f.freq });
+    frames.current.add({ t: Math.max(0, p.currentTime - LATENCY), freq: f.freq });
   });
 
-  useEffect(
-    () => () => {
-      player.current?.pause();
-      if (recUrl) URL.revokeObjectURL(recUrl);
-    },
-    [recUrl],
-  );
+  useEffect(() => () => void (recUrl && URL.revokeObjectURL(recUrl)), [recUrl]);
+
+  // leaving the page lets go of everything: the players, their files, the recorder
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      releaseAudio(player.current);
+      player.current = null;
+      releaseAudio(loopEl.current);
+      loopEl.current = null;
+      loopSource.current = null;
+      if (recorder.current?.state === 'recording') recorder.current.stop();
+      recorder.current = null;
+    };
+  }, []);
 
   // a library song with a stored file: load it right away
   useEffect(() => {
@@ -61,7 +72,7 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
       if (!f) return setErr('ملف الأغنية مش موجود على الجهاز ده. اختاريه تاني من صفحة الأغنية أو من هنا.');
       const file = new File([f.bytes], f.name, { type: f.type });
       setRefFile(file);
-      void analyze(file);
+      void analyze(file, song.id);
     });
   }, []);
 
@@ -74,9 +85,10 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
     }
   }, [curve]);
 
-  const analyze = async (file: File) => {
+  const analyze = async (file: File, id = `file:${file.lastModified}`) => {
     setErr('');
-    loopSource.current?.pause();
+    releaseAudio(loopEl.current);
+    loopEl.current = null;
     loopSource.current = null;
     setLoopMoment(null);
     setCurve(null);
@@ -84,9 +96,8 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
     setSung(null);
     setAnalyzing(0.01);
     try {
-      const buf = await audioContext().decodeAudioData(await file.arrayBuffer());
-      const c = await extractPitchCurve(toMono(buf), buf.sampleRate, {}, (p) => setAnalyzing(Math.max(0.01, p)));
-      setCurve(c);
+      const { curve: c } = await analyzeSong(curveKey(id, file.size, file.name), () => file.arrayBuffer(), (p) => mounted.current && setAnalyzing(Math.max(0.01, p)));
+      if (mounted.current) setCurve(c);
     } catch (e) {
       setErr('معرفناش نقرا الملف ده. جربي ملف mp3 أو wav أو m4a. ' + String(e));
     }
@@ -97,37 +108,45 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
     if (!refFile || !curve) return;
     setResult(null);
     setSung(null);
-    frames.current = [];
+    frames.current.clear();
     const mic = await start();
     if (!mic) return;
 
     const chunks: Blob[] = [];
-    const rec = new MediaRecorder(mic.stream);
-    rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = () => {
-      setRecUrl(URL.createObjectURL(new Blob(chunks, { type: rec.mimeType })));
-    };
-    const recStart = performance.now();
-    rec.start();
-    recorder.current = rec;
+    try {
+      const rec = new MediaRecorder(mic.stream);
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = () => {
+        if (mounted.current) setRecUrl(URL.createObjectURL(new Blob(chunks, { type: rec.mimeType }))); // the last round only: the old one is revoked
+      };
+      const recStart = performance.now();
+      rec.start();
+      recorder.current = rec;
 
-    const audio = new Audio(URL.createObjectURL(backingFile ?? refFile));
-    audio.onended = finish;
-    player.current = audio;
-    await audio.play();
-    recOffset.current = (performance.now() - recStart) / 1000;
-    setRecording(true);
+      const audio = new Audio(URL.createObjectURL(backingFile ?? refFile));
+      audio.onended = finish;
+      player.current = audio;
+      await audio.play();
+      recOffset.current = (performance.now() - recStart) / 1000;
+      setRecording(true);
+    } catch (e) {
+      releaseAudio(player.current);
+      player.current = null;
+      if (recorder.current?.state === 'recording') recorder.current.stop();
+      recorder.current = null;
+      stop();
+      setErr('معرفناش نشغّل الأغنية: ' + String((e as Error)?.message ?? e));
+    }
   };
 
   function finish() {
-    player.current?.pause();
-    if (player.current) URL.revokeObjectURL(player.current.src);
+    releaseAudio(player.current);
     player.current = null;
     recorder.current?.stop();
     recorder.current = null;
     stop();
     setRecording(false);
-    const s = [...frames.current];
+    const s = frames.current.points;
     setSung(s);
     if (curve && s.length) {
       // Only score the part of the song she sang along to (she may stop early).
@@ -143,11 +162,11 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
     if (!refFile || !curve) return;
     if (!loopSource.current) {
       const el = new Audio(URL.createObjectURL(backingFile ?? refFile));
+      loopEl.current = el;
       loopSource.current = audioLoopSource(el, curve[curve.length - 1]?.t ?? 0);
     }
     setLoopMoment({ start, end });
   };
-  useEffect(() => () => loopSource.current?.pause(), []);
 
   const seek = (t: number) => {
     const a = recAudio.current;

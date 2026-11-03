@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ErrorText, Options } from './ui';
 import { g } from '../lib/gender';
 import { HomeScreenNote } from './BeforeTraining';
+import { ErrorReport } from './ErrorBoundary';
 import { Help } from './Help';
 import { showWelcomeAgain } from './Welcome';
 import { noiseCheckOn, setNoiseCheck } from '../lib/noise';
@@ -216,6 +217,7 @@ export function BackupSection() {
           👋 عرض الترحيب تاني
         </button>
       </p>
+      <ErrorReport />
     </div>
   );
 }

@@ -32,6 +32,7 @@ import { lifecycle } from './lib/lifecycle';
 import { onSoundFallback } from './audio/sound';
 import { SYNC_APPLIED_EVENT } from './sync/account';
 import { AccountPage } from './pages/AccountPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { backOf, TABS, tabOf } from './lib/nav';
 import { genderChosen } from './lib/gender';
 import { useOnline, useUpdateWaiting } from './audio/offline';
@@ -153,7 +154,9 @@ export default function App() {
           <Icon name="more" />
         </a>
       </header>
-      <main>{active ? <active.el key={`${active.id}-${epoch}`} /> : <HomePage askGender={askGender} onGenderDone={() => setAskGender(false)} />}</main>
+      <main>
+        <ErrorBoundary key={`${page}-${epoch}`}>{active ? <active.el key={`${active.id}-${epoch}`} /> : <HomePage askGender={askGender} onGenderDone={() => setAskGender(false)} />}</ErrorBoundary>
+      </main>
       <nav className="tabbar" aria-label="الأقسام">
         {TABS.map((t) => (
           <a key={t.id || 'home'} className={'tab' + (t.id === tab ? ' on' : '')} href={`#/${t.id}`} aria-current={t.id === tab ? 'page' : undefined}>
@@ -170,6 +173,7 @@ export default function App() {
 /** Messages that float above the tab bar: update ready, offline, a new badge. */
 function Toasts({ stopped = false, onCloseStopped }: { stopped?: boolean; onCloseStopped?: () => void }) {
   const [fallback, setFallback] = useState(false);
+  const [killed, setKilled] = useState(() => !!window.__sotyKilled);
   useEffect(() => onSoundFallback(() => setFallback(true)), []);
   // the "we stopped" note goes away by itself
   useEffect(() => {
@@ -184,6 +188,14 @@ function Toasts({ stopped = false, onCloseStopped }: { stopped?: boolean; onClos
         <div className="toast" role="status">
           <span>رجعتي 👋 وقفنا اللي كان شغال لما خرجتي من التطبيق — دوسي ابدئي تاني.</span>
           <button className="link" onClick={onCloseStopped} aria-label="إخفاء">
+            ✕
+          </button>
+        </div>
+      )}
+      {killed && (
+        <div className="toast" role="status">
+          <span>التطبيق اتقفل فجأة المرة اللي فاتت. رجعناكي لمكانك، ونتايجك محفوظة.</span>
+          <button className="link" onClick={() => setKilled(false)} aria-label="إخفاء">
             ✕
           </button>
         </div>

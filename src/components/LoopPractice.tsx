@@ -1,14 +1,15 @@
 // "🔁 كرري الحتة دي": loop a hard phrase N times, with a score for every repeat. Works with an
 // audio element (file mode) or the YouTube player, through the small LoopSource interface.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorText, LiveNote, Options, Stat } from './ui';
 import { PitchGraph } from './PitchGraph';
 import { Help } from './Help';
 import { useMic } from '../audio/useMic';
 import { loopWindow, markAt, mediaLatency, nudge, trend, type LoopWindow } from '../lib/loop';
 import type { PitchPoint } from '../lib/compare';
-import { addResult } from '../lib/storage';
+import { addResult, savePendingResult } from '../lib/storage';
+import { CurveLog, pushCapped } from '../lib/curveCap';
 
 export interface LoopSource {
   duration(): number;
@@ -80,7 +81,8 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
   const [scores, setScores] = useState<number[]>([]);
   const [live, setLive] = useState<PitchPoint[]>([]);
   const [pos, setPos] = useState(0);
-  const frames = useRef<PitchPoint[]>([]);
+  const frames = useRef(new CurveLog<PitchPoint>());
+  const gapTimer = useRef(0);
   const st = useRef({ phase: 'idle' as string, w, repeats, rate, scores: [] as number[] });
   st.current.w = w;
   st.current.repeats = repeats;
@@ -91,8 +93,10 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
     if (s.phase !== 'loop' || !source.playing()) return;
     const t = source.currentTime() - mediaLatency(LATENCY, s.rate);
     if (t < s.w.start) return;
-    frames.current.push({ t, freq: f.freq });
-    if (frames.current.length % 6 === 0) setLive([...frames.current]);
+    if (!frames.current.add({ t, freq: f.freq })) return;
+    // the live line: often for a short phrase, less often for a whole song
+    const n = frames.current.length;
+    if (n % Math.max(3, Math.floor(n / 200)) === 0) setLive([...frames.current.points]);
   });
 
   const setP = (p: 'idle' | 'loop' | 'gap' | 'free') => {
@@ -102,7 +106,8 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
 
   const save = () => {
     const sc = st.current.scores;
-    if (sc.length) addResult('loop', sc[sc.length - 1], `${label}: ${trend(sc).text}`, { songId });
+    savePendingResult(null);
+    if (sc.length) addResult('loop', sc[sc.length - 1], `${label}: ${trend(sc.slice(-12)).text}`, { songId });
   };
 
   const finish = () => {
@@ -113,7 +118,7 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
   };
 
   const playRepeat = () => {
-    frames.current = [];
+    frames.current.clear();
     setLive([]);
     source.seek(st.current.w.start);
     source.play();
@@ -129,21 +134,24 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
       setPos(t);
       if (s.phase !== 'loop' || t < s.w.end) return;
       source.pause();
-      const value = score(frames.current, s.w);
-      s.scores = [...s.scores, value];
+      const value = score(frames.current.points, s.w);
+      s.scores = pushCapped(s.scores, value);
       setScores(s.scores);
       onScoreRef.current?.(value);
+      savePendingResult('loop', value, `${label}: ${trend(s.scores.slice(-12)).text}`, { songId }); // survives if the app is killed
       if (s.repeats && s.scores.length >= s.repeats) return finish();
       setP('gap');
-      setTimeout(() => st.current.phase === 'gap' && playRepeat(), GAP_MS);
+      gapTimer.current = window.setTimeout(() => st.current.phase === 'gap' && playRepeat(), GAP_MS);
     }, 40);
     return () => clearInterval(id);
   }, []); // reads everything through st (refs); source/score are fixed for this panel
 
   useEffect(
     () => () => {
+      clearTimeout(gapTimer.current); // or the song would start playing again after leaving the page
       source.pause();
       if (st.current.scores.length && st.current.phase !== 'idle') save();
+      st.current.phase = 'idle';
     },
     [],
   );
@@ -172,9 +180,9 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
   };
 
   const dur = source.duration();
-  const t = trend(scores);
+  const t = trend(scores.slice(-12));
   const running = phase === 'loop' || phase === 'gap';
-  const refInside = (reference ?? []).filter((p) => p.t >= w.start && p.t <= w.end);
+  const refInside = useMemo(() => (reference ?? []).filter((p) => p.t >= w.start && p.t <= w.end), [reference, w.start, w.end]);
 
   return (
     <div className="panel loop-panel">

@@ -10,10 +10,11 @@ import {
   createScheduler,
   FILE_STATE_KEY,
   readConfig,
-  songFilePath,
   songKeyOfPath,
   syncDocs,
   planFiles,
+  localSongFiles,
+  shouldSyncFiles,
   teacherPath,
   type LocalDocs,
   type Reach,
@@ -27,7 +28,8 @@ import { base64ToFloat, floatToBase64, type TeacherBackup } from '../lib/backup'
 import { songIdOfKey } from '../lib/choir';
 import { lifecycle } from '../lib/lifecycle';
 import { listTeacher, saveTeacher } from '../audio/teacherStore';
-import { listSongFiles, saveSongFile } from '../audio/songFiles';
+import { getSongFile, listSongFileKeys, saveSongFile } from '../audio/songFiles';
+import { analysisRunning } from '../audio/songAnalysis';
 import { supabaseBackend } from './supabaseBackend';
 
 export const syncConfig = readConfig(supabaseUrl, supabaseKey);
@@ -45,6 +47,8 @@ export interface AccountState {
   /** bytes of her files on the server (of the free 1 GB) */
   filesBytes: number | null;
   files: { done: number; total: number } | null;
+  /** song files over the 50 MB limit: they stay on this device */
+  filesTooBig: number;
 }
 
 let state: AccountState = {
@@ -57,6 +61,7 @@ let state: AccountState = {
   summary: null,
   filesBytes: null,
   files: null,
+  filesTooBig: 0,
 };
 const subs = new Set<() => void>();
 const set = (patch: Partial<AccountState>) => {
@@ -191,30 +196,43 @@ async function backend(): Promise<SyncBackend> {
 
 // ---- this device as the local side of the sync
 
+function readJson(key: string): Record<string, never> {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? '{}');
+  } catch {
+    return {}; // broken bookkeeping: the next sync simply merges again
+  }
+}
+
 const localDocs: LocalDocs = {
   read: readAppStorage,
   // written straight to localStorage (not via storage.ts) so what came from the server isn't marked as a change here
   write: (s) => {
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v);
   },
-  getMeta: () => JSON.parse(localStorage.getItem(META_KEY) ?? '{}'),
+  getMeta: () => readJson(META_KEY),
   setMeta: (m) => localStorage.setItem(META_KEY, JSON.stringify(m)),
-  getDirty: () => JSON.parse(localStorage.getItem(DIRTY_KEY) ?? '{}'),
+  getDirty: () => readJson(DIRTY_KEY),
   clearDirty: (upTo) => {
-    const d = JSON.parse(localStorage.getItem(DIRTY_KEY) ?? '{}') as Record<string, number>;
+    const d = readJson(DIRTY_KEY) as Record<string, number>;
     for (const [k, t] of Object.entries(d)) if (t <= upTo) delete d[k];
     localStorage.setItem(DIRTY_KEY, JSON.stringify(d));
   },
 };
 
-/** Audio files: teacher / "دو ري مي" recordings (as the backup's JSON) and song files (as they are). */
-async function syncFiles(b: SyncBackend) {
+/** Don't compete with her practice: nothing while an exercise runs, a song is being analysed, or the app is in the background. */
+const canSyncNow = () => !lifecycle.isBusy() && !analysisRunning() && !lifecycle.hidden;
+
+/**
+ * Audio files, one at a time: only the file being sent or received is in memory. The lists come from song records and
+ * IndexedDB keys, so nothing is loaded just to compare. Stops between files if she starts practising.
+ */
+async function syncFiles(b: SyncBackend): Promise<boolean> {
   const teacher = await listTeacher();
-  const songFiles = await listSongFiles();
-  const local: RemoteFile[] = [
-    ...teacher.map((t) => ({ path: teacherPath(t.createdAt), size: t.data.length * 2 })),
-    ...songFiles.map((f) => ({ path: songFilePath(f.songId, f.name), size: f.bytes.byteLength })),
-  ];
+  const storedKeys = await listSongFileKeys();
+  const songFiles = localSongFiles(getSongs(), storedKeys);
+  set({ filesTooBig: localSongFiles(getSongs(), storedKeys, Infinity).length - songFiles.length });
+  const local: RemoteFile[] = [...teacher.map((t) => ({ path: teacherPath(t.createdAt), size: t.data.length * 2 })), ...songFiles.map((f) => ({ path: f.path, size: f.size }))];
   const remote = await b.listFiles();
   const plan = planFiles(local, remote, readAppStorage()[FILE_STATE_KEY]);
   const songIds = new Set(getSongs().map((s) => s.id));
@@ -224,6 +242,7 @@ async function syncFiles(b: SyncBackend) {
   const step = () => set({ files: total ? { done: ++done, total } : null });
   if (total) set({ files: { done: 0, total } });
   const failed: string[] = [];
+  let finished = true;
   const retry = async (f: () => Promise<void>, path: string) => {
     for (let i = 0; i < 3; i++) {
       try {
@@ -234,19 +253,28 @@ async function syncFiles(b: SyncBackend) {
     }
   };
   for (const path of plan.upload) {
+    if (!canSyncNow()) {
+      finished = false;
+      break;
+    }
     await retry(async () => {
       if (path.startsWith('teacher/')) {
         const t = teacher.find((x) => teacherPath(x.createdAt) === path)!;
         const json: TeacherBackup = { freq: t.freq, sampleRate: t.sampleRate, createdAt: t.createdAt, audio: floatToBase64(t.data), ...(t.target !== undefined ? { target: t.target } : {}), ...(t.syllable ? { syllable: t.syllable } : {}) };
         await b.upload(path, new TextEncoder().encode(JSON.stringify(json)), 'application/json');
       } else {
-        const f = songFiles.find((x) => songFilePath(x.songId, x.name) === path)!;
-        await b.upload(path, new Uint8Array(f.bytes), f.type || 'audio/mpeg');
+        const entry = songFiles.find((x) => x.path === path)!;
+        const f = await getSongFile(entry.key);
+        if (f) await b.upload(path, new Uint8Array(f.bytes), f.type || 'audio/mpeg');
       }
     }, path);
     step();
   }
   for (const path of download) {
+    if (!canSyncNow()) {
+      finished = false;
+      break;
+    }
     await retry(async () => {
       const { bytes, contentType } = await b.download(path);
       if (path.startsWith('teacher/')) {
@@ -262,8 +290,10 @@ async function syncFiles(b: SyncBackend) {
     step();
   }
   await b.removeFiles(plan.remove);
-  set({ files: null, filesBytes: (await b.listFiles()).reduce((a, f) => a + f.size, 0) });
+  const changed = done > 0 || plan.remove.length > 0;
+  set({ files: null, filesBytes: (changed ? await b.listFiles() : remote).reduce((a, f) => a + f.size, 0) });
   if (failed.length) throw new Error(`${failed.length} ملف متزامنوش — هنجرب تاني بعدين`);
+  return finished;
 }
 
 /** One full sync: data, then (if allowed) audio files. Throws on failure so the scheduler retries. */
@@ -282,7 +312,11 @@ async function runSync() {
     const after = readAppStorage();
     const changed = Object.keys(after).filter((k) => after[k] !== before[k]);
     if (changed.length) window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: changed }));
-    if (getPref('sync.audio') !== '0') await syncFiles(b);
+    const manual = manualSync;
+    manualSync = false;
+    if (shouldSyncFiles(getPref('sync.audio') !== '0', manual, lastFileSync, Date.now()) && canSyncNow()) {
+      if (await syncFiles(b)) lastFileSync = Date.now();
+    }
     const now = Date.now();
     setPref('sync.last', String(now));
     set({ phase: 'idle', lastSync: now, summary, message: '' });
@@ -292,10 +326,13 @@ async function runSync() {
   }
 }
 
-const scheduler = createScheduler(runSync);
+const scheduler = createScheduler(runSync, { canRun: canSyncNow });
+let manualSync = false;
+let lastFileSync: number | null = null;
 
-/** "زامني دلوقتي" */
+/** "زامني دلوقتي" (also the first sync after signing in): includes the audio files. */
 export function syncNow(): Promise<void> {
+  manualSync = true;
   return scheduler.now();
 }
 

@@ -48,6 +48,10 @@ export class Lifecycle {
     return this.busy.size > 0;
   }
 
+  busyNames(): string[] {
+    return [...this.busy.keys()];
+  }
+
   onHidden(cb: () => void): () => void {
     this.hideSubs.add(cb);
     return () => void this.hideSubs.delete(cb);

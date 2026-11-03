@@ -73,6 +73,19 @@ export function smoothCurve(curve: PitchPoint[], radius = 2, minRun = 3): PitchP
   return res;
 }
 
+/** Mono without allocating: mixes into the buffer's first channel (only for a buffer that isn't played afterwards). */
+export function monoInPlace(buffer: AudioBuffer): Float32Array {
+  const out = buffer.getChannelData(0);
+  const n = buffer.numberOfChannels;
+  if (n === 1) return out;
+  for (let c = 1; c < n; c++) {
+    const ch = buffer.getChannelData(c);
+    for (let i = 0; i < out.length; i++) out[i] += ch[i];
+  }
+  for (let i = 0; i < out.length; i++) out[i] /= n;
+  return out;
+}
+
 /** Mix all channels of an AudioBuffer to mono. */
 export function toMono(buffer: AudioBuffer): Float32Array {
   const out = new Float32Array(buffer.length);

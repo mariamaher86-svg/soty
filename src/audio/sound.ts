@@ -186,6 +186,7 @@ async function playNoteRaw(freq: number, seconds: number, kind: SoundKind): Prom
   src.stop(t0 + length + 0.02);
   const ended = new Promise<void>((resolve) => {
     src.onended = () => {
+      src.disconnect();
       gain.disconnect();
       resolve();
     };
@@ -220,6 +221,7 @@ function playOscillator(freq: number, seconds: number): Promise<void> {
   });
   const ended = new Promise<void>((resolve) => {
     oscs[0].onended = () => {
+      oscs.forEach((o) => o.disconnect());
       gain.disconnect();
       resolve();
     };

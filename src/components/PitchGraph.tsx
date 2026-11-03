@@ -1,11 +1,16 @@
 // Timeline graph: reference pitch line, her pitch line (moved to the reference's octave), off ranges,
 // and optional scale guide lines (YouTube mode, where there is no reference line).
 
+import { memo, useMemo } from 'react';
 import { foldToOctaveOf, sampleAt, type PitchPoint } from '../lib/compare';
+import { minMax, thinPoints } from '../lib/curveCap';
 import { freqToMidi, noteName } from '../lib/music';
 
 const PX_PER_SEC = 40;
 const HEIGHT = 220;
+/** Points in one line, and the graph's width: a long song stays light to draw and to keep on screen. */
+const MAX_POINTS = 2000;
+const MAX_WIDTH = 4000;
 
 interface Props {
   reference: PitchPoint[];
@@ -33,23 +38,29 @@ function path(points: { t: number; midi: number | null }[], x: (t: number) => nu
   return d;
 }
 
-export function PitchGraph({ reference, sung, offRanges, onSeek, guides, startT = 0 }: Props) {
-  const refMidi = reference.map((p) => ({ t: p.t, midi: p.freq ? freqToMidi(p.freq) : null }));
-  // Her pitch, shifted by whole octaves to sit on the reference line (comparison ignores octave).
-  const sungMidi = (sung ?? []).map((p) => {
-    if (!p.freq) return { t: p.t, midi: null };
-    const r = sampleAt(reference, p.t, 0.3);
-    return { t: p.t, midi: freqToMidi(r?.freq ? foldToOctaveOf(p.freq, r.freq) : p.freq) };
-  });
-  const all = [...refMidi, ...sungMidi].map((p) => p.midi).filter((m): m is number => m !== null);
-  if (!all.length) return <p className="hint">مفيش نغمات واضحة في الملف.</p>;
-
-  const minM = Math.floor(Math.min(...all)) - 2;
-  const maxM = Math.ceil(Math.max(...all)) + 2;
-  const duration = Math.max(...reference.map((p) => p.t), ...(sung ?? []).map((p) => p.t), startT + 1) - startT;
-  const width = Math.ceil(duration * PX_PER_SEC) + 40;
-  const x = (t: number) => 40 + (t - startT) * PX_PER_SEC;
-  const y = (m: number) => HEIGHT - 10 - ((m - minM) / (maxM - minM)) * (HEIGHT - 20);
+/** Redrawn only when its data changes (not on every live reading of the page around it). */
+export const PitchGraph = memo(function PitchGraph({ reference, sung, offRanges, onSeek, guides, startT = 0 }: Props) {
+  const drawn = useMemo(() => {
+    const refMidi = thinPoints(reference, MAX_POINTS).map((p) => ({ t: p.t, midi: p.freq ? freqToMidi(p.freq) : null }));
+    // Her pitch, shifted by whole octaves to sit on the reference line (comparison ignores octave).
+    const sungMidi = thinPoints(sung ?? [], MAX_POINTS).map((p) => {
+      if (!p.freq) return { t: p.t, midi: null };
+      const r = sampleAt(reference, p.t, 0.3);
+      return { t: p.t, midi: freqToMidi(r?.freq ? foldToOctaveOf(p.freq, r.freq) : p.freq) };
+    });
+    const range = minMax([...refMidi, ...sungMidi].flatMap((p) => (p.midi === null ? [] : [p.midi])));
+    if (!range) return null;
+    const minM = Math.floor(range.min) - 2;
+    const maxM = Math.ceil(range.max) + 2;
+    const lastT = Math.max(reference[reference.length - 1]?.t ?? 0, minMax((sung ?? []).map((p) => p.t))?.max ?? 0, startT + 1);
+    const duration = lastT - startT;
+    const pxPerSec = Math.min(PX_PER_SEC, MAX_WIDTH / Math.max(duration, 1));
+    const x = (t: number) => 40 + (t - startT) * pxPerSec;
+    const y = (m: number) => HEIGHT - 10 - ((m - minM) / (maxM - minM)) * (HEIGHT - 20);
+    return { minM, maxM, duration, pxPerSec, width: Math.ceil(duration * pxPerSec) + 40, x, y, refPath: path(refMidi, x, y), sungPath: path(sungMidi, x, y) };
+  }, [reference, sung, startT]);
+  if (!drawn) return <p className="hint">مفيش نغمات واضحة في الملف.</p>;
+  const { minM, maxM, duration, pxPerSec, width, x, y, refPath, sungPath } = drawn;
 
   const gridNotes: number[] = [];
   for (let m = Math.ceil(minM); m <= maxM; m++) if (m % 12 === 0 || m % 12 === 7) gridNotes.push(m); // C and G lines
@@ -63,11 +74,11 @@ export function PitchGraph({ reference, sung, offRanges, onSeek, guides, startT 
         onClick={(e) => {
           if (!onSeek) return;
           const box = e.currentTarget.getBoundingClientRect();
-          onSeek(Math.max(0, startT + (e.clientX - box.left - 40) / PX_PER_SEC));
+          onSeek(Math.max(0, startT + (e.clientX - box.left - 40) / pxPerSec));
         }}
       >
         {(offRanges ?? []).map((r, i) => (
-          <rect key={i} className="graph-off" x={x(r.start)} y={0} width={Math.max(2, (r.end - r.start) * PX_PER_SEC)} height={HEIGHT} />
+          <rect key={i} className="graph-off" x={x(r.start)} y={0} width={Math.max(2, (r.end - r.start) * pxPerSec)} height={HEIGHT} />
         ))}
         {(guides ?? [])
           .filter((g) => g.midi >= minM && g.midi <= maxM)
@@ -94,9 +105,9 @@ export function PitchGraph({ reference, sung, offRanges, onSeek, guides, startT 
             {s}s
           </text>
         ))}
-        {reference.length > 0 && <path className="graph-ref" d={path(refMidi, x, y)} />}
-        {sung && <path className="graph-sung" d={path(sungMidi, x, y)} />}
+        {reference.length > 0 && <path className="graph-ref" d={refPath} />}
+        {sung && <path className="graph-sung" d={sungPath} />}
       </svg>
     </div>
   );
-}
+});

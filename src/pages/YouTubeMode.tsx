@@ -11,6 +11,7 @@ import { checkScale, nearestDegree, SCALES, spellScale, tonicName, type ScaleChe
 import { midiToFreq } from '../lib/music';
 import { parseYouTubeId } from '../lib/youtube';
 import { addResult, getPref, setPref } from '../lib/storage';
+import { CurveLog } from '../lib/curveCap';
 import type { PitchPoint } from '../lib/compare';
 import type { Song } from '../lib/songs';
 
@@ -56,8 +57,9 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
 
   const box = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
-  const frames = useRef<PitchPoint[]>([]);
-  const timeMap = useRef<{ video: number; rec: number }[]>([]);
+  const frames = useRef(new CurveLog<PitchPoint>());
+  const timeMap = useRef(new CurveLog<{ t: number; rec: number }>());
+  const mounted = useRef(true);
   const recorder = useRef<MediaRecorder | null>(null);
   const recStart = useRef(0);
   const lastLive = useRef(0);
@@ -95,11 +97,11 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
     const p = player.current;
     if (!recording || !p || p.getPlayerState() !== YT_STATE.PLAYING) return;
     const t = Math.max(0, p.getCurrentTime() - LATENCY);
-    frames.current.push({ t, freq: f.freq });
-    timeMap.current.push({ video: t, rec: (performance.now() - recStart.current) / 1000 });
+    if (!frames.current.add({ t, freq: f.freq })) return;
+    timeMap.current.add({ t, rec: (performance.now() - recStart.current) / 1000 });
     if (f.t - lastLive.current > 150) {
       lastLive.current = f.t;
-      setLive(frames.current.filter((x) => x.t >= t - LIVE_SECONDS && x.t <= t + 0.5));
+      setLive(frames.current.points.filter((x) => x.t >= t - LIVE_SECONDS && x.t <= t + 0.5));
     }
   });
 
@@ -107,8 +109,9 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
   useEffect(() => setPref('yt.scale', scaleId), [scaleId]);
   useEffect(
     () => () => {
+      mounted.current = false;
       player.current?.destroy();
-      recorder.current?.stop();
+      if (recorder.current?.state === 'recording') recorder.current.stop();
     },
     [],
   );
@@ -161,14 +164,14 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
     setResult(null);
     setSung(null);
     setLive([]);
-    frames.current = [];
-    timeMap.current = [];
+    frames.current.clear();
+    timeMap.current.clear();
     const mic = await start();
     if (!mic || !player.current) return;
     const chunks: Blob[] = [];
     const rec = new MediaRecorder(mic.stream);
     rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = () => setRecUrl(URL.createObjectURL(new Blob(chunks, { type: rec.mimeType })));
+    rec.onstop = () => mounted.current && setRecUrl(URL.createObjectURL(new Blob(chunks, { type: rec.mimeType })));
     recStart.current = performance.now();
     rec.start();
     recorder.current = rec;
@@ -183,7 +186,7 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
     recorder.current = null;
     stop();
     setRecording(false);
-    const s = [...frames.current].sort((a, b) => a.t - b.t);
+    const s = [...frames.current.points].sort((a, b) => a.t - b.t);
     setSung(s);
     const r = checkScale(s, tonicFreq, scale.pcs, TOLERANCE);
     setResult(r);
@@ -195,8 +198,8 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
   const seekRecording = (videoT: number) => {
     const a = recAudio.current;
     if (!a || !timeMap.current.length) return;
-    let best = timeMap.current[0];
-    for (const m of timeMap.current) if (Math.abs(m.video - videoT) < Math.abs(best.video - videoT)) best = m;
+    let best = timeMap.current.points[0];
+    for (const m of timeMap.current.points) if (Math.abs(m.t - videoT) < Math.abs(best.t - videoT)) best = m;
     a.currentTime = Math.max(0, best.rec - 0.5);
     void a.play();
   };

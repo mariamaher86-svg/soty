@@ -4,6 +4,9 @@ import {
   checkReachable,
   createScheduler,
   FILE_STATE_KEY,
+  localSongFiles,
+  MAX_SYNC_FILE_BYTES,
+  shouldSyncFiles,
   hashString,
   mergeDoc,
   planDocs,
@@ -241,6 +244,29 @@ describe('files', () => {
   });
 });
 
+describe('audio files are not read during a normal sync', () => {
+  it('the list comes from song records: stored files only, too-big ones left out', () => {
+    const big = MAX_SYNC_FILE_BYTES + 1;
+    const songs = [
+      { id: 's1', file: { name: 'a.mp3', size: 10 }, parts: [{ id: 'p1', file: { name: 'b.mp3', size: 20 } }, { id: 'p2', file: { name: 'c.mp3', size: 30 } }] },
+      { id: 's2', file: { name: 'huge.wav', size: big } },
+      { id: 's3', file: { name: 'gone.mp3', size: 5 } },
+    ];
+    expect(localSongFiles(songs, ['s1', 's1::p1', 's2'])).toEqual([
+      { key: 's1', path: songFilePath('s1', 'a.mp3'), size: 10 },
+      { key: 's1::p1', path: songFilePath('s1::p1', 'b.mp3'), size: 20 },
+    ]);
+  });
+  it('audio files sync when asked, the first time, or every 15 minutes — not after every result', () => {
+    const now = 1000000000;
+    expect(shouldSyncFiles(true, false, null, now)).toBe(true);
+    expect(shouldSyncFiles(true, false, now - 60000, now)).toBe(false);
+    expect(shouldSyncFiles(true, false, now - 16 * 60000, now)).toBe(true);
+    expect(shouldSyncFiles(true, true, now - 1000, now)).toBe(true);
+    expect(shouldSyncFiles(false, true, null, now)).toBe(false); // the setting is off
+  });
+});
+
 describe('song files: one per song', () => {
   it('a new file for a song replaces the server copy (other name), and the old copy is never fetched back', () => {
     const local = [{ path: songFilePath('s1', 'new.mp3'), size: 9 }];
@@ -273,6 +299,48 @@ describe('network', () => {
     const p = checkReachable('https://x.supabase.co', 'k', hang, true, 6000);
     vi.advanceTimersByTime(6000);
     expect(await p).toBe('blocked');
+  });
+  it('sync waits while she practises (not a failure), then runs once she stops', async () => {
+    let calls = 0;
+    let busy = true;
+    const s = createScheduler(
+      async () => {
+        calls++;
+      },
+      { debounceMs: 3000, canRun: () => !busy, deferMs: 20000 },
+    );
+    s.request();
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(calls).toBe(0);
+    expect(s.pending()).toBe(true);
+    busy = false;
+    await vi.advanceTimersByTimeAsync(20000);
+    expect(calls).toBe(1);
+    expect(s.pending()).toBe(false);
+  });
+  it('two syncs never run at once; a change during a sync gets one more after it', async () => {
+    let active = 0;
+    let most = 0;
+    let calls = 0;
+    const s = createScheduler(
+      async () => {
+        calls++;
+        active++;
+        most = Math.max(most, active);
+        await new Promise((r) => setTimeout(r, 1000));
+        active--;
+      },
+      { debounceMs: 100 },
+    );
+    void s.now();
+    void s.now();
+    s.request();
+    await vi.advanceTimersByTimeAsync(500);
+    void s.now();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(most).toBe(1);
+    expect(calls).toBe(2);
   });
   it('the scheduler: requests are debounced, failures retry later, coming online retries now', async () => {
     let calls = 0;

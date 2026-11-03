@@ -1,5 +1,6 @@
 // Everything is kept in this browser (localStorage). Reads/writes never throw.
 
+import { logError } from './errorLog';
 import type { Measurement, WorkoutLog } from './path';
 
 export type ResultType = 'range' | 'match' | 'maqam' | 'sustain' | 'stability' | 'hiss' | 'singalong' | 'scale' | 'ear-pitch' | 'ear-same' | 'ear-interval' | 'ear-maqam' | 'intervals' | 'loop' | 'vocalise' | 'findnote' | 'phrase' | 'rhythm' | 'game' | 'dynamics' | 'piano' | 'piano-vocalise';
@@ -73,8 +74,9 @@ function save(d: Data) {
   try {
     localStorage.setItem(KEY, JSON.stringify(d));
     markDirty([KEY]);
-  } catch {
+  } catch (e) {
     // private mode / quota: keep working without saving
+    logError('storage', 'could not save results: ' + String((e as Error)?.name ?? e));
   }
 }
 
@@ -105,6 +107,30 @@ export function addResult(type: ResultType, value: number, detail?: string, extr
 }
 
 export const RESULT_EVENT = 'soty-result';
+
+const PENDING = 'pending.result';
+
+/**
+ * A round still going (a phrase loop): kept after every repeat, so if iOS kills the app the score isn't lost.
+ * The next start saves it (flushPendingResult); finishing normally clears it (null).
+ */
+export function savePendingResult(type: ResultType | null, value = 0, detail?: string, extra?: { songId?: string }) {
+  setPref(PENDING, type ? JSON.stringify({ type, value, detail, date: today(), ts: Date.now(), ...(extra?.songId ? { songId: extra.songId } : {}) }) : '');
+}
+
+export function flushPendingResult() {
+  const raw = getPref(PENDING);
+  if (!raw) return;
+  setPref(PENDING, '');
+  try {
+    const r = JSON.parse(raw) as Result;
+    const d = load();
+    d.results.push(r);
+    save(d);
+  } catch {
+    // nothing usable
+  }
+}
 
 export function getResults(): Result[] {
   return load().results;

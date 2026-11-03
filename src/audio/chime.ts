@@ -16,6 +16,7 @@ export function playSuccess() {
       gain.gain.linearRampToValueAtTime(0.16, t + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
       osc.connect(gain).connect(ac.destination);
+      osc.onended = () => gain.disconnect();
       osc.start(t);
       osc.stop(t + 0.5);
     });
