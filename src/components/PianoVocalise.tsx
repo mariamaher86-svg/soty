@@ -189,6 +189,95 @@ export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoo
 
   return (
     <>
+      <PianoKeyboard
+        target={shown?.key ?? null}
+        quarter={shown?.quarter ?? 0}
+        hit={sung?.onKeyboard ? sung.midi : null}
+        comfort={range}
+        labels={labels}
+        zoom={zoom}
+        onKey={pick}
+        caption={
+          shownStep ? (
+            <>
+              <span className="pv-syllable">{shownStep.syllable}</span> <span dir="auto">{nameOf(shownStep.midi)}</span>
+            </>
+          ) : undefined
+        }
+      />
+
+      <ol className="pv-dots" aria-label="نغمات التمرين">
+        {steps.map((s, i) => {
+          const r = follow.results[i];
+          const cls = r ? (r.ok ? 'ok' : 'bad') : (phase === 'sing' && i === follow.index) || (phase === 'listen' && i === playIndex) ? 'now' : '';
+          return (
+            <li key={i} className={cls}>
+              <span className="pv-dot">{r ? (r.ok ? '✔' : '✘') : s.syllable}</span>
+              {r && !r.ok && <small>{offWords(r.cents)}</small>}
+            </li>
+          );
+        })}
+      </ol>
+
+      <ErrorText text={error} />
+
+      {phase === 'sing' && (
+        <div className="panel center">
+          <p className="guide">
+            دلوقتي: <b>{shownStep?.syllable}</b> على <span dir="auto">{shownStep ? nameOf(shownStep.midi) : ''}</span>
+          </p>
+          <CentsMeter cents={liveCents} tolerance={STEP_TOLERANCE} />
+          <OctaveHint rawCents={raw.current} fromTest={range.fromTest} />
+        </div>
+      )}
+      {phase === 'ref' && <p className="panel center hint">اسمعي أول نغمة… وبعدين دورك.</p>}
+
+      {score && phase !== 'sing' && (
+        <div className="panel">
+          <div className="stats">
+            <Stat label="مظبوطين" value={`${score.ok} من ${score.total}`} />
+            <Stat label="النتيجة" value={`${score.percent}%`} />
+          </div>
+          {score.off.length > 0 && (
+            <p className="hint">
+              محتاجين شغل:{' '}
+              {score.off.map((o) => (
+                <span key={o.index} className="pv-off" dir="auto">
+                  {nameOf(steps[o.index].midi)} ({offWords(o.cents)})
+                </span>
+              ))}
+            </p>
+          )}
+          {note && <p className="ok-text">{note}</p>}
+          <div className="row">
+            <button onClick={() => move(-1)} disabled={busy}>
+              ⬇ نص تون
+            </button>
+            <button onClick={() => void sing()} disabled={busy}>
+              🔁 تاني نفس الطبقة
+            </button>
+            <button onClick={() => move(1)} disabled={busy}>
+              ⬆ نص تون
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="row">
+        {busy ? (
+          <button className="big primary" onClick={stopAll}>
+            ⏹ وقفي
+          </button>
+        ) : (
+          <>
+            <button onClick={() => void listen()}>🔊 اسمعي</button>
+            <button className="big primary" onClick={() => void sing()}>
+              🎤 دورك
+            </button>
+          </>
+        )}
+      </div>
+
       <div className="panel">
         <div className="page-head">
           <h2>🎶 فوكاليز على البيانو</h2>
@@ -273,89 +362,6 @@ export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoo
             ⬆ تطلع لوحدها نص تون بعد كل مرة حلوة (٨٠٪ أو أكتر)، وبعدين تنزل
           </label>
         </Options>
-      </div>
-
-      <PianoKeyboard target={shown?.key ?? null} quarter={shown?.quarter ?? 0} hit={sung?.onKeyboard ? sung.midi : null} comfort={range} labels={labels} zoom={zoom} onKey={pick} />
-
-      <div className="pv-now" aria-live="polite">
-        {shownStep && (
-          <>
-            <span className="pv-syllable">{shownStep.syllable}</span>
-            <span dir="auto">{nameOf(shownStep.midi)}</span>
-          </>
-        )}
-      </div>
-
-      <ol className="pv-dots" aria-label="نغمات التمرين">
-        {steps.map((s, i) => {
-          const r = follow.results[i];
-          const cls = r ? (r.ok ? 'ok' : 'bad') : (phase === 'sing' && i === follow.index) || (phase === 'listen' && i === playIndex) ? 'now' : '';
-          return (
-            <li key={i} className={cls}>
-              <span className="pv-dot">{r ? (r.ok ? '✔' : '✘') : s.syllable}</span>
-              {r && !r.ok && <small>{offWords(r.cents)}</small>}
-            </li>
-          );
-        })}
-      </ol>
-
-      <ErrorText text={error} />
-
-      {phase === 'sing' && (
-        <div className="panel center">
-          <p className="guide">
-            دلوقتي: <b>{shownStep?.syllable}</b> على <span dir="auto">{shownStep ? nameOf(shownStep.midi) : ''}</span>
-          </p>
-          <CentsMeter cents={liveCents} tolerance={STEP_TOLERANCE} />
-          <OctaveHint rawCents={raw.current} fromTest={range.fromTest} />
-        </div>
-      )}
-      {phase === 'ref' && <p className="panel center hint">اسمعي أول نغمة… وبعدين دورك.</p>}
-
-      {score && phase !== 'sing' && (
-        <div className="panel">
-          <div className="stats">
-            <Stat label="مظبوطين" value={`${score.ok} من ${score.total}`} />
-            <Stat label="النتيجة" value={`${score.percent}%`} />
-          </div>
-          {score.off.length > 0 && (
-            <p className="hint">
-              محتاجين شغل:{' '}
-              {score.off.map((o) => (
-                <span key={o.index} className="pv-off" dir="auto">
-                  {nameOf(steps[o.index].midi)} ({offWords(o.cents)})
-                </span>
-              ))}
-            </p>
-          )}
-          {note && <p className="ok-text">{note}</p>}
-          <div className="row">
-            <button onClick={() => move(-1)} disabled={busy}>
-              ⬇ نص تون
-            </button>
-            <button onClick={() => void sing()} disabled={busy}>
-              🔁 تاني نفس الطبقة
-            </button>
-            <button onClick={() => move(1)} disabled={busy}>
-              ⬆ نص تون
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="row">
-        {busy ? (
-          <button className="big primary" onClick={stopAll}>
-            ⏹ وقفي
-          </button>
-        ) : (
-          <>
-            <button onClick={() => void listen()}>🔊 اسمعي</button>
-            <button className="big primary" onClick={() => void sing()}>
-              🎤 دورك
-            </button>
-          </>
-        )}
       </div>
     </>
   );

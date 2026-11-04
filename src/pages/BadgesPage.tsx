@@ -19,7 +19,8 @@ function badgeContext(): BadgeContext {
     results: getResults(),
     range: getRange(),
     lessonsDone: getLessonsDone(),
-    lessonCount: LESSONS.length,
+    // new lessons were added later: a badge already earned for finishing the basics stays earned
+    lessonCount: readList('badges.seen').includes('basics') ? Math.max(1, Math.min(LESSONS.length, Object.keys(getLessonsDone()).length)) : LESSONS.length,
     phraseProgress: getSongs()
       .map((s) => getPhraseProgress(s.id))
       .filter((p) => !!p)

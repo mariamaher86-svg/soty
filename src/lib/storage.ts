@@ -274,3 +274,21 @@ export function markLessonDone(id: string) {
   if (!d[id]) d[id] = today();
   setPref('lessons.done', JSON.stringify(d));
 }
+
+/** Which lesson sections were read and where she stopped. Prefs: already in the backup and in sync. */
+export function getLessonProgress(): Record<string, { read: number[]; last: number }> {
+  try {
+    const v = JSON.parse(getPref('lessons.progress') ?? '{}');
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveLessonProgress(p: Record<string, { read: number[]; last: number }>) {
+  setPref('lessons.progress', JSON.stringify(p));
+}
+
+/** The day the beginner path's part of a lesson was last read. */
+export const getLessonDay = () => getPref('lessons.day');
+export const markLessonDay = (day: string) => setPref('lessons.day', day);

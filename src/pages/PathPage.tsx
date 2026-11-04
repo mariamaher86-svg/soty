@@ -16,8 +16,9 @@ import { StepNav } from '../components/StepNav';
 import { ActivityBadge, arDigits } from '../components/ActivityBadge';
 import { LessonView } from './LessonsPage';
 import { FindNotePage } from './FindNotePage';
-import { lessonById, todaysLesson, type LessonId } from '../content/lessons';
-import { getLessonsDone } from '../lib/storage';
+import { lessonById, LESSONS } from '../content/lessons';
+import { todaysReading, type Reading } from '../lib/lessonProgress';
+import { getLessonDay, getLessonProgress, getLessonsDone, markLessonDay } from '../lib/storage';
 import { earIsReal, intervalsIsReal, rhythmIsReal, matchIsReal, maqamIsReal, MIN_MATCH_TRIES, rangeIsReal, secondsIsReal, stabilityIsReal, warmupIsReal, workoutCounts } from '../lib/stepRules';
 import { getWeeklySong, singSong } from './songNav';
 import { MAQAMAT } from '../lib/maqam';
@@ -69,7 +70,7 @@ const MEASURE_INFO: Record<MeasureStep, { title: string; how: string }> = {
 
 const WORKOUT_INFO: Record<WorkoutStep, { title: string; how: string }> = {
   findnote: { title: 'إزاي أجيب دو صح؟', how: 'اسمعي النغمة، همهمي «مممم»، واطلعي أو انزلي ببطء لحد ما النقطة تيجي على الخط، واثبتي ثانية.' },
-  lesson: { title: 'درس النهارده', how: 'درس صغير من أساسيات الموسيقى: اسمعي الأمثلة، وبعدين اختبار ٥ أسئلة.' },
+  lesson: { title: 'درس النهارده', how: 'الجزء الجاي من الدرس، حوالي ٣ دقايق، من المكان اللي وقفتي عنده. ولما الأجزاء تخلص: الاختبار.' },
   warmup: { title: 'الإحماء', how: 'بررر، سيرينة، وهمهمة — بهدوء ومن غير صوت عالي. دوسي "التالي" جوه كل جزء.' },
   intervals: { title: 'غنا الفواصل', how: 'اسمعي النغمة وغني المسافة المطلوبة. لو صعبة دوسي "اسمعي الإجابة".' },
   rhythm: { title: 'الإيقاع', how: 'اسمعي ٤ عدّات وصقّفي على الضربة مازورتين. أول مرة ظبطي التأخير تحت.' },
@@ -81,7 +82,7 @@ const WORKOUT_INFO: Record<WorkoutStep, { title: string; how: string }> = {
 };
 
 const WORKOUT_NEED: Record<WorkoutStep, string> = {
-  lesson: 'لسه محتاجين نجاح في اختبار الدرس (٤ من ٥).',
+  lesson: 'لسه جزء النهارده من الدرس مخلصش.',
   findnote: 'لسه محتاجين نلاقي ٣ نغمات على الأقل.',
   warmup: 'لسه محتاجين جزئين على الأقل من الإحماء (بررر، سيرينة، همهمة).',
   hiss: 'لسه محتاجين نسمع السسسس.',
@@ -180,9 +181,9 @@ export function PathPage() {
   const workoutsDone = real.length;
   const light = shouldGoLight(real, day);
   // today's music-basics lesson (frozen when the workout starts, so passing it doesn't shift the steps)
-  const [wLesson, setWLesson] = useState<LessonId | null>(null);
+  const [wLesson, setWLesson] = useState<Reading | null>(null);
   const [wFind, setWFind] = useState(false);
-  const lessonNow = todaysLesson(getLessonsDone(), day);
+  const lessonNow = todaysReading(LESSONS, getLessonsDone(), getLessonProgress(), getLessonDay(), day);
   const findNow = workoutsDone < 7 && !!getLessonsDone().note; // first week, after "what is a note"
   const inWorkout = view.kind === 'workout' || view.kind === 'workoutNotCounted';
   const plan = workoutPlan(light, inWorkout ? !!wLesson : !!lessonNow, inWorkout ? wFind : findNow, isRhythmDay(workoutsDone));
@@ -232,7 +233,7 @@ export function PathPage() {
   };
 
   const goWorkout = () => {
-    setWLesson(todaysLesson(getLessonsDone(), day));
+    setWLesson(todaysReading(LESSONS, getLessonsDone(), getLessonProgress(), getLessonDay(), day));
     setWFind(findNow);
     doneSteps.current = 0;
     setCaptured('');
@@ -399,9 +400,15 @@ export function PathPage() {
         >
           {s.step === 'lesson' && wLesson && (
             <LessonView
-              lesson={lessonById(wLesson)!}
+              lesson={lessonById(wLesson.lesson)!}
+              chunk={wLesson}
               onPassed={() => {
-                setCaptured(`الدرس خلص ✔: ${lessonById(wLesson)!.title}`);
+                setCaptured(`الدرس خلص ✔: ${lessonById(wLesson.lesson)!.title}`);
+                setStepOk(true);
+              }}
+              onChunkDone={() => {
+                markLessonDay(day);
+                setCaptured(`جزء النهارده خلص ✔: ${lessonById(wLesson.lesson)!.title}`);
                 setStepOk(true);
               }}
             />

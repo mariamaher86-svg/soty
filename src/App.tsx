@@ -41,7 +41,7 @@ import { useOnline, useUpdateWaiting } from './audio/offline';
 // `desc`/`home` are kept for reference; navigation is the bottom tab bar + the top bar's back button.
 const PAGES = [
   { id: 'path', icon: '🌱', title: 'مسار المبتدئ', desc: 'التطبيق يقولك تعملي إيه كل يوم ويوريكي بتتحسني ولا لأ', el: PathPage, home: false },
-  { id: 'lessons', icon: '🎓', title: 'أساسيات الموسيقى', desc: 'دروس صغيرة: النغمة، دو ري مي، الأوكتاف، الربع تون، يعني إيه مقام', el: LessonsPage, home: true },
+  { id: 'lessons', icon: '🎓', title: 'أساسيات الموسيقى', desc: 'دروس للمذاكرة: النغمة، السلم، المقامات، الكوردات، الإيقاع، وقاموس مصطلحات', el: LessonsPage, home: true },
   { id: 'exercises', icon: '🏋️', title: 'التمارين', desc: 'كل التمارين متقسمة: إحماء، نفس، طبقات، نغمة، ودن، فواصل، مقامات، أغاني', el: ExercisesPage, home: true },
   { id: 'songs', icon: '📚', title: 'مكتبة أغانيّ', desc: 'أغانيكي، ومنها تتعلمي أغنية جملة جملة', el: LibraryPage, home: true },
   { id: 'car', icon: '🚗', title: 'وضع العربية', desc: 'جلسة بالصوت بس، من غير ما تبصي على الموبايل', el: CarPage, home: true },

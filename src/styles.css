@@ -1294,32 +1294,6 @@ select {
 }
 
 /* Lessons */
-.keyboard {
-  width: 100%;
-  max-width: 360px;
-  height: auto;
-  display: block;
-  margin: var(--s2) auto;
-}
-
-.key.white {
-  fill: #fff;
-  stroke: #888;
-}
-
-.key.black {
-  fill: #222;
-}
-
-.key.on {
-  fill: var(--accent);
-}
-
-.key-label {
-  font-size: 11px;
-  fill: #555;
-}
-
 .lesson .examples {
   display: flex;
   flex-direction: column;
@@ -2638,18 +2612,17 @@ input[type='range'] {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   scroll-snap-type: none;
-  margin: var(--s2) calc(-1 * var(--s4)) 0;
-  padding: 0 var(--s4) var(--s2);
+  padding: 0 var(--s4) var(--s1);
 }
 
 .piano {
   position: relative;
-  height: 210px;
+  height: clamp(130px, 21vh, 180px);
 }
 
 .pkey {
   position: absolute;
-  top: 0;
+  top: 16px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -2667,7 +2640,7 @@ input[type='range'] {
 }
 
 .pkey.white {
-  height: 100%;
+  height: calc(100% - 16px);
   background: #fbfbfd;
   color: #2a2733;
   border: 1px solid #c9c6d3;
@@ -2675,7 +2648,7 @@ input[type='range'] {
 }
 
 .pkey.black {
-  height: 62%;
+  height: 60%;
   background: #24212c;
   color: #eceaf2;
   border: 1px solid #111;
@@ -2889,4 +2862,366 @@ input[type='range'] {
   height: 100%;
   min-width: 4px;
   background: var(--accent);
+}
+
+/* ---- the piano stays on screen: label, mini-map, keys ---- */
+.piano-dock {
+  position: sticky;
+  top: calc(52px + var(--safe-top));
+  z-index: 15;
+  margin: 0 calc(-1 * var(--s4));
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.piano-now {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  min-height: 44px;
+  padding: 0 var(--s4);
+}
+
+.piano-label {
+  font-size: var(--fs-lg);
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.piano-same {
+  flex-shrink: 0;
+  padding: 0 var(--s3);
+  font-size: var(--fs-xs);
+}
+
+.piano-modes {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: var(--s2) calc(-1 * var(--s4));
+  padding: 0 var(--s4);
+  scrollbar-width: none;
+}
+
+.piano-modes .chip {
+  flex-shrink: 0;
+  padding: 0 var(--s3);
+  font-size: var(--fs-sm);
+}
+
+.mini-map {
+  position: relative;
+  height: 34px;
+  margin: 0 var(--s4) var(--s1);
+  background: #fbfbfd;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.mini-black {
+  position: absolute;
+  top: 0;
+  height: 55%;
+  background: #24212c;
+}
+
+.mini-octave {
+  position: absolute;
+  bottom: 0;
+  padding-left: 2px;
+  border-left: 1px solid #a9a5b6;
+  color: #4b4759;
+  font-size: 0.62rem;
+  line-height: 1.3;
+}
+
+.mini-frame {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+}
+
+.mini-dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  pointer-events: none;
+}
+
+.mini-dot.target {
+  background: var(--accent);
+}
+
+.mini-dot.voice {
+  background: var(--sung-line);
+}
+
+.piano-ruler {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 16px;
+}
+
+.piano-ruler span {
+  position: absolute;
+  padding-left: 3px;
+  border-left: 1px solid var(--muted);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+/* a stronger line where each octave starts, so the 2 + 3 black keys pattern stands out */
+.pkey.white.octave-start {
+  border-left: 2px solid #6f6a80;
+}
+
+.pkey.white.same {
+  background: color-mix(in srgb, var(--accent) 26%, #fbfbfd);
+}
+
+.pkey.black.same {
+  background: color-mix(in srgb, var(--accent) 55%, #24212c);
+}
+
+.pkey.target,
+.pkey.white.same.target,
+.pkey.black.same.target {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.pkey.hit,
+.pkey.white.same.hit,
+.pkey.black.same.hit,
+.pkey.target.hit {
+  background: var(--sung-line);
+  color: #fff;
+}
+
+.pkey.hit-target,
+.pkey.white.same.hit-target,
+.pkey.black.same.hit-target {
+  background: var(--ok);
+  color: #fff;
+}
+
+.pkey.black .pkey-name small {
+  font-size: 0.58rem;
+  line-height: 1.25;
+}
+
+.piano-panel {
+  margin: var(--s3) 0;
+  padding: var(--s3) var(--s4);
+  gap: var(--s2);
+}
+
+.piano-panel p {
+  margin: 0;
+}
+
+.piano-hold {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+}
+
+.piano-hold .hold-ring {
+  flex-shrink: 0;
+  transform: scale(0.75);
+  margin: -14px -10px;
+}
+
+.piano-hold .hold-ring small {
+  display: none;
+}
+
+.piano-hold .guide {
+  flex: 1;
+  margin: 0;
+  text-align: start;
+}
+
+.piano-octave {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  width: 100%;
+  font-size: var(--fs-sm);
+}
+
+.piano-panel .meter {
+  width: 100%;
+}
+
+/* music basics: study pages */
+.piano-dock.inline {
+  margin: 0 calc(-1 * var(--s4)) var(--s3);
+}
+
+.piano-dock.inline .piano {
+  height: 118px;
+}
+
+.lesson-anchor {
+  scroll-margin-top: calc(52px + var(--safe-top));
+}
+
+.lesson > p:not(.hint),
+.lesson-box,
+.lesson-box p,
+.lesson-summary li,
+.lesson-voice > p:first-child {
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.lesson-box {
+  margin: var(--s3) 0;
+  padding: var(--s3);
+  border-radius: var(--r-sm);
+  border-inline-start: 4px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  line-height: 1.7;
+  text-align: start;
+}
+
+.lesson-ex {
+  border-inline-start-color: var(--accent);
+}
+
+.lesson-like {
+  border-inline-start-color: var(--ok, var(--accent));
+}
+
+.lesson-note {
+  border-inline-start-color: var(--warn, #c98a12);
+}
+
+.lesson-why p {
+  margin: 0;
+}
+
+.lesson-summary {
+  margin: var(--s3) 0;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--accent);
+  text-align: start;
+}
+
+.lesson-summary h3 {
+  margin: 0 0 var(--s2);
+}
+
+.lesson-summary ul {
+  margin: 0;
+  padding-inline-start: var(--s4);
+  line-height: 1.7;
+}
+
+.lesson-table {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: var(--s3) 0;
+}
+
+.lesson-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.lesson-table th,
+.lesson-table td {
+  padding: var(--s2);
+  border: 1px solid var(--border);
+  text-align: start;
+}
+
+.lesson-table th {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.term-link {
+  display: inline;
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.lesson-voice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+  padding: var(--s3);
+  border: 1px dashed var(--accent);
+  border-radius: var(--r-sm);
+}
+
+.lesson-voice p {
+  margin: 0;
+}
+
+.lesson-toc {
+  list-style: none;
+  margin: 0 0 var(--s3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.lesson-toc button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  text-align: start;
+}
+
+.toc-mark {
+  flex-shrink: 0;
+  min-width: 1.5em;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.glossary {
+  margin: var(--s3) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.glossary dd {
+  margin: var(--s1) 0 0;
+}
+
+.glossary-on {
+  border-color: var(--accent);
 }

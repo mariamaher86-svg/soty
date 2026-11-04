@@ -3,13 +3,15 @@ import { CentsMeter, ErrorText, Options, Page, Stat } from '../components/ui';
 import { PianoKeyboard } from '../components/PianoKeyboard';
 import { PianoVocalise } from '../components/PianoVocalise';
 import { SoundPicker } from '../components/SoundPicker';
-import { OctaveHint } from '../components/OctaveHint';
 import { HoldRing } from '../components/HoldRing';
 import { useMic } from '../audio/useMic';
 import { playNote } from '../audio/sound';
 import { playSuccess } from '../audio/chime';
-import { centsToTarget, keyLabel, nearestKey, PIANO_HOLD_MS, PIANO_TOLERANCE, rangeNote, targetFreq, type LabelStyle, type Quarter } from '../lib/keyboard';
-import { noteName, quarterToneName } from '../lib/music';
+import { centsToTarget, chosenLabel, keyNames, nearestKey, octavesOff, PIANO_HOLD_MS, PIANO_TOLERANCE, rangeNote, retargetToRange, targetFreq, type LabelStyle, type Quarter } from '../lib/keyboard';
+import { g } from '../lib/gender';
+import { BeforeTraining } from '../components/BeforeTraining';
+import { NoiseCheck } from '../components/NoiseCheck';
+import { quarterToneName } from '../lib/music';
 import { guidance, HoldTracker, mean, median, percent } from '../lib/stats';
 import { addResult, getPref, setPref } from '../lib/storage';
 import { exerciseRange } from './common';
@@ -31,7 +33,8 @@ const QUARTERS: { id: Quarter; ar: string }[] = [
 /** "A4 · لا 4", or the quarter-tone spelling ("E½♭4 · مي نص بيمول 4"). */
 function targetName(midi: number, quarter: Quarter): { name: string; ar: string } {
   if (quarter !== 0) return quarterToneName(midi + quarter);
-  return { name: noteName(midi), ar: `${keyLabel(midi, 'solfege').main} ${keyLabel(midi, 'solfege').octave}` };
+  const [ar, name] = chosenLabel(midi).split(' — ');
+  return { name, ar };
 }
 
 /** "🎹 البيانو": tap any key, hear it, sing it — or see on the piano which note you're singing. */
@@ -41,6 +44,12 @@ export function PianoPage() {
   const [mode, setMode] = useState<Mode>(() => (window.location.hash.endsWith('/vocalise') ? 'vocalise' : 'target'));
   const [labels, setLabels] = useState<LabelStyle>(() => (getPref('piano.labels') as LabelStyle) || 'solfege');
   const [zoom, setZoom] = useState(() => getPref('piano.zoom') === '1');
+  const [showSame, setShowSame] = useState(() => getPref('piano.same') === '1');
+  const toggleSame = () =>
+    setShowSame((v) => {
+      setPref('piano.same', v ? '0' : '1');
+      return !v;
+    });
   const [quarter, setQuarter] = useState<Quarter>(0);
   const [target, setTarget] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
@@ -141,6 +150,16 @@ export function PianoPage() {
     await play(target);
   };
 
+  /** She's a whole octave off (E2 is out of reach for many voices): the same note where she can sing it. */
+  const singInMyOctave = () => {
+    if (target === null) return;
+    const m = retargetToRange(target, range.low, range.high, sung ? sung.midi : null);
+    setTarget(m);
+    st.current.target = m;
+    resetTry();
+    void play(m);
+  };
+
   const stopListening = () => {
     endAttempt(false);
     stop();
@@ -162,21 +181,88 @@ export function PianoPage() {
   const sung = freq ? nearestKey(freq) : null;
   const cents = mode === 'target' && target !== null && freq ? centsToTarget(freq, target, quarter) : null;
   const guide = cents !== null ? guidance(cents, PIANO_TOLERANCE) : null;
-  const tName = target !== null ? targetName(target, quarter) : null;
   const outside = target !== null ? rangeNote(target, range.low, range.high) : null;
   const micOn = mode === 'free' || listening;
+  const octaves = listening ? octavesOff(raw.current) : 0;
 
   return (
-    <Page
-      tips
-      mic
-      help="piano"
-      title="🎹 البيانو"
-      intro={
-        mode === 'target' ? 'دوسي على أي نغمة تسمعيها، وبعدين غنّيها.' : mode === 'free' ? 'غنّي أي نغمة، والبيانو يوريكي إنتي فين.' : 'اختاري تمرين ونغمة البداية، اسمعيه، وبعدين غنّيه نغمة نغمة.'
-      }
-    >
-      <div className="choices" role="group" aria-label="الوضع">
+    <Page help="piano" title="🎹 البيانو">
+      {mode === 'vocalise' && <PianoVocalise labels={labels} zoom={zoom} range={range} />}
+      {mode !== 'vocalise' && (
+        <PianoKeyboard
+          target={mode === 'target' ? target : null}
+          quarter={quarter}
+          hit={micOn && sung?.onKeyboard ? sung.midi : null}
+          comfort={range}
+          labels={labels}
+          zoom={zoom}
+          onKey={pickKey}
+          caption={mode === 'free' ? (sung ? `${keyNames(sung.midi).solfege} — ${keyNames(sung.midi).letter}` : <span className="hint">غنّي أي نغمة…</span>) : undefined}
+          showSame={showSame}
+          onToggleSame={mode === 'target' ? toggleSame : undefined}
+        />
+      )}
+
+      <ErrorText text={error} />
+
+      {mode === 'vocalise' ? null : mode === 'free' ? (
+        <div className="panel center piano-panel">
+          {sung ? (
+            <>
+              <p className={Math.abs(sung.cents) <= PIANO_TOLERANCE ? 'ok-text' : 'hint'}>
+                {sung.cents === 0 ? 'في النص بالظبط' : `${sung.cents > 0 ? '+' : ''}${sung.cents} سنت ${sung.cents > 0 ? '(أعلى شوية)' : '(أوطى شوية)'}`}
+              </p>
+              <CentsMeter cents={sung.cents} tolerance={PIANO_TOLERANCE} range={50} />
+            </>
+          ) : (
+            <p className="hint">البيانو بينوّر على النغمة اللي بتغنيها.</p>
+          )}
+        </div>
+      ) : target === null ? (
+        <p className="panel center hint piano-panel">دوسي على مفتاح تسمعيه، وبعدين غنّيه.</p>
+      ) : (
+        <div className="panel center piano-panel">
+          {outside && !listening && <p className="hint piano-gentle">{outside === 'high' ? 'النغمة دي ممكن تكون عالية على صوتك' : 'النغمة دي ممكن تكون واطية على صوتك'} — غنّيها بهدوء.</p>}
+          {listening && (
+            <>
+              <p className="hint" dir="auto">
+                بتغني: {sung ? `${keyNames(sung.midi).solfege} ${keyNames(sung.midi).letter}` : '…'}
+              </p>
+              <CentsMeter cents={cents} tolerance={PIANO_TOLERANCE} />
+              {!success && octaves !== 0 && (
+                <div className="piano-octave" role="status">
+                  <span>
+                    {g('إنتي', 'إنت')} بتغني {octaves > 0 ? 'أعلى' : 'أوطى'} {Math.abs(octaves) > 1 ? 'بأوكتافين أو أكتر' : 'بأوكتاف'} — ده طبيعي لو النغمة بعيدة عن صوتك.
+                  </span>
+                  <button onClick={singInMyOctave}>غنّيها في الأوكتاف بتاعي</button>
+                </div>
+              )}
+              <div className="piano-hold">
+                <HoldRing progress={progress} ok={success} />
+                <p className={'guide' + (guide?.ok || success ? ' ok-text' : '')}>{success ? '✔ مظبوط!' : guide ? `${guide.ar}${guide.ok ? '' : cents! > 0 ? ' ⬇' : ' ⬆'}` : 'غنّي النغمة…'}</p>
+              </div>
+            </>
+          )}
+          <div className="row">
+            <button onClick={() => void play(target)}>🔁 تاني</button>
+            {listening ? (
+              success ? (
+                <button className="big primary" onClick={resetTry}>
+                  غنّيها تاني
+                </button>
+              ) : (
+                <button onClick={stopListening}>⏹ وقفي</button>
+              )
+            ) : (
+              <button className="big primary" onClick={sing}>
+                🎤 غنّي النغمة دي
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="choices piano-modes" role="group" aria-label="الوضع">
         <button className={mode === 'target' ? 'chip active' : 'chip'} onClick={() => void switchMode('target')}>
           🎯 اختاري وغنّي
         </button>
@@ -188,21 +274,22 @@ export function PianoPage() {
         </button>
       </div>
 
-      {mode === 'vocalise' && <PianoVocalise labels={labels} zoom={zoom} range={range} />}
       {mode !== 'vocalise' && (
-        <>
-          <PianoKeyboard target={mode === 'target' ? target : null} quarter={quarter} hit={micOn && sung?.onKeyboard ? sung.midi : null} comfort={range} labels={labels} zoom={zoom} onKey={pickKey} />
-          <p className="hint piano-legend">
-            <span className="swatch comfort-swatch" /> المنطقة المريحة لصوتك
-            {micOn && (
-              <>
-                {' · '}
-                <span className="swatch hit-swatch" /> اللي بتغنيه
-              </>
-            )}
-          </p>
-        </>
+        <p className="hint piano-legend">
+          <span className="swatch comfort-swatch" /> المنطقة المريحة لصوتك
+          {micOn && (
+            <>
+              {' · '}
+              <span className="swatch hit-swatch" /> اللي بتغنيه
+            </>
+          )}
+        </p>
       )}
+
+      <div className="page-tools">
+        <BeforeTraining />
+        <NoiseCheck />
+      </div>
 
       <Options label={mode === 'vocalise' ? 'خيارات البيانو: الأسامي، التكبير، الصوت' : 'خيارات: الأسامي، التكبير، الصوت، الربع تون'}>
         <div className="choices" role="group" aria-label="أسامي النغمات">
@@ -252,65 +339,6 @@ export function PianoPage() {
           </>
         )}
       </Options>
-
-      <ErrorText text={error} />
-
-      {mode === 'vocalise' ? null : mode === 'free' ? (
-        <div className="panel center">
-          {sung ? (
-            <>
-              <div className="target-note">
-                {keyLabel(sung.midi, 'solfege').main} <small dir="ltr">{noteName(sung.midi)}</small>
-              </div>
-              <p className={Math.abs(sung.cents) <= PIANO_TOLERANCE ? 'ok-text' : 'hint'}>
-                {sung.cents === 0 ? 'في النص بالظبط' : `${sung.cents > 0 ? '+' : ''}${sung.cents} سنت ${sung.cents > 0 ? '(أعلى شوية)' : '(أوطى شوية)'}`}
-              </p>
-              <CentsMeter cents={sung.cents} tolerance={PIANO_TOLERANCE} range={50} />
-            </>
-          ) : (
-            <p className="hint">{micOn ? 'غنّي أي نغمة…' : ''}</p>
-          )}
-        </div>
-      ) : target === null ? (
-        <p className="panel center hint">دوسي على أي مفتاح في البيانو فوق.</p>
-      ) : (
-        <div className="panel center">
-          <p className="hint">النغمة المطلوبة</p>
-          <div className="target-note">
-            {tName!.ar} <small dir="ltr">{tName!.name}</small>
-          </div>
-          {outside && (
-            <p className="warn-text">{outside === 'high' ? 'النغمة دي ممكن تكون عالية على صوتك' : 'النغمة دي ممكن تكون واطية على صوتك'} — غنّيها بهدوء، أو اختاري نغمة من المنطقة المعلّمة.</p>
-          )}
-          {listening && (
-            <>
-              <p className="hint" dir="auto">
-                بتغني: {sung ? `${keyLabel(sung.midi, 'solfege').main} ${noteName(sung.midi)}` : '…'}
-              </p>
-              <CentsMeter cents={cents} tolerance={PIANO_TOLERANCE} />
-              {!success && <OctaveHint rawCents={raw.current} fromTest={range.fromTest} />}
-              <p className={'guide' + (guide?.ok || success ? ' ok-text' : '')}>{success ? '✔ مظبوط!' : guide ? guide.ar : 'غنّي النغمة…'}</p>
-              <HoldRing progress={progress} ok={success} />
-            </>
-          )}
-          <div className="row">
-            <button onClick={() => void play(target)}>🔁 تاني</button>
-            {listening ? (
-              success ? (
-                <button className="big primary" onClick={resetTry}>
-                  غنّيها تاني
-                </button>
-              ) : (
-                <button onClick={stopListening}>⏹ وقفي</button>
-              )
-            ) : (
-              <button className="big primary" onClick={sing}>
-                🎤 غنّي النغمة دي
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {(tally.tries > 0 || recent.length > 0) && (
         <div className="panel">
