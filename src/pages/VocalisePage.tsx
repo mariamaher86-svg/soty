@@ -38,14 +38,18 @@ export function VocalisePage() {
     if (Math.abs(c) <= 50) r.inTune++; // light judging: within half a semitone
   });
 
+  // Each note starts on the same timeline her turn is judged on (vocaliseNotes' times). Waiting for each note to
+  // end before the next one made the example drift later and later, so echoing it exactly scored badly.
   const playPattern = async (startMidi: number, cancellable: boolean) => {
     const notes = vocaliseNotes(v, startMidi);
+    const t0 = performance.now();
     for (let k = 0; k < notes.length; k++) {
+      await wait(Math.max(0, t0 + notes[k].t * 1000 - performance.now()));
       if (cancellable && !run.current.active) return;
       setNoteIdx(k);
-      await playNote(midiToFreq(notes[k].midi), notes[k].dur);
-      if (v.gap) await wait(v.gap * 1000);
+      void playNote(midiToFreq(notes[k].midi), notes[k].dur);
     }
+    await wait(Math.max(0, t0 + patternLength(v) * 1000 - performance.now()));
     setNoteIdx(null);
   };
 
@@ -92,7 +96,7 @@ export function VocalisePage() {
   const shown = vocaliseNotes(v, keys[Math.min(rep, keys.length - 1)]);
 
   return (
-    <Page tips mic help="vocalise" title="تمارين الصوت (فوكاليز)" intro="تمارين كلاسيك زي «آه ها ها آآآ»: اسمعي النمط، وبعدين غنيه بعده. كل مرة بيطلع نص تون لحد آخر صوتك المريح، وبعدين بينزل.">
+    <Page tips mic help="vocalise" title="تمارين الصوت (فوكاليز)" intro="اسمعي النمط، وغنيه بعده.">
       <ErrorText text={error} />
       <div className="choices">
         {VOCALISES.map((x) => (

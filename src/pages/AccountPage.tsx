@@ -51,7 +51,7 @@ export function AccountPage() {
 
   if (!a.user)
     return (
-      <Page help="account" title="👤 حسابي" intro="اختياري: بإيميلك، بياناتك بتتحفظ كمان في السيرفر بتاعك وتتزامن بين الموبايل واللابتوب.">
+      <Page help="account" title="👤 حسابي" intro="اختياري: بياناتك تتحفظ وتتزامن بين أجهزتك.">
         <div className="panel">
           <div className="choices" role="group" aria-label="دخول أو حساب جديد">
             <button className={mode === 'in' ? 'chip active' : 'chip'} onClick={() => switchMode('in')}>

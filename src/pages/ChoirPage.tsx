@@ -246,7 +246,7 @@ export function ChoirPage({ song }: { song: Song }) {
   };
 
   return (
-    <Page tips mic help="choir" title={`🎼 ${song.title}`} intro="اختاري صوتك، واختاري إزاي تسمعي الكورال، وبعدين غني جملة جملة.">
+    <Page tips mic help="choir" title={`🎼 ${song.title}`} intro="اختاري صوتك، وغني جملة جملة.">
       <ErrorText text={err} />
       <div className="panel">
         <h2>١. صوتك</h2>

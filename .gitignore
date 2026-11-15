@@ -26,3 +26,4 @@ desktop.ini
 *.swp
 *.log
 npm-debug.log*
+coverage

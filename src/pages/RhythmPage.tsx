@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ErrorText, Options, Page, Stat } from '../components/ui';
+import { ErrorText, Options, Page, Stat, Score } from '../components/ui';
 import { LessonLink } from '../components/LessonLink';
 import { useMic } from '../audio/useMic';
 import { audioContext } from '../audio/audio';
@@ -192,7 +192,7 @@ export function RhythmPage({ onResult }: { onResult?: (score: number) => void } 
       tips
       help="rhythm"
       title="🥁 الإيقاع"
-      intro="صقّفي أو قولي «تا» على الضربة. الأول ٤ عدّات تسمعيها (١، ٢، ٣، ٤ — ادخلي)، وبعدين مازورتين."
+      intro="اسمعي ٤ عدّات، وصقّفي على الضربة."
     >
       <LessonLink id="rhythm" what="ضربة ومازورة" />
       {latency === null && <p className="hint">⚠️ ابدئي بـ «👏 ظبطي التأخير» تحت مرة واحدة — من غيره النتايج على الموبايل هتطلع متأخرة.</p>}
@@ -239,7 +239,7 @@ export function RhythmPage({ onResult }: { onResult?: (score: number) => void } 
         <ErrorText text={rec.error} />
         {timing && (
           <div className="rhythm-result">
-            <Stat label="النتيجة" value={`${timing.score}%`} />
+            <Score value={`${timing.score}%`}>
             {avg !== null && Math.abs(avg) > 0.04 && <p>{avg < 0 ? 'في المتوسط بتسبقي الضربة' : 'في المتوسط بتتأخري عن الضربة'} — {timingWords(avg)}.</p>}
             <ol className="rhythm-list">
               {timing.errors.map((e, i) => (
@@ -248,6 +248,7 @@ export function RhythmPage({ onResult }: { onResult?: (score: number) => void } 
                 </li>
               ))}
             </ol>
+            </Score>
           </div>
         )}
       </div>

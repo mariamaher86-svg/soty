@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ErrorText, Page } from '../components/ui';
 import { newPasswordProblem, type AuthLanding } from '../lib/auth';
 import { recoveryReady, saveNewPassword } from '../sync/account';
+import { browser } from '../lib/reload';
 
 const cleanUrl = () => window.history.replaceState(null, '', window.location.pathname);
 
@@ -39,7 +40,7 @@ export function RecoveryPage({ landing }: { landing: AuthLanding }) {
 
   const openApp = () => {
     window.location.hash = '#/account';
-    window.location.reload();
+    browser.reload();
   };
 
   return (

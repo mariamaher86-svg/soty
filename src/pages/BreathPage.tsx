@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { g } from '../lib/gender';
-import { ErrorText, LiveNote, Page, Stat } from '../components/ui';
+import { ErrorText, LiveNote, Page, Stat, Score } from '../components/ui';
 import { playNote } from '../audio/sound';
 import { currentVoiceThreshold } from '../lib/noise';
 import { BreathIllustration, YouTubeSearch } from '../components/Demo';
@@ -154,10 +154,9 @@ export function Stability({ onResult }: { onResult?: (sdCents: number) => void }
         </>
       )}
       {sd !== null && (
-        <div className="stats">
+        <Score value={state === 'done' && rating ? `${'★'.repeat(rating.stars)}${'☆'.repeat(4 - rating.stars)}` : `${sd.toFixed(1)} سنت`} label={state === 'done' && rating ? rating.ar : 'الاهتزاز'}>
           <Stat label="الاهتزاز (انحراف معياري)" value={`${sd.toFixed(1)} سنت`} />
-          {state === 'done' && rating && <Stat label="التقييم" value={`${'★'.repeat(rating.stars)}${'☆'.repeat(4 - rating.stars)} ${rating.ar}`} />}
-        </div>
+        </Score>
       )}
       {state === 'done' && <p className="ok-text">اتحفظ ✔</p>}
       {state !== 'listening' && (

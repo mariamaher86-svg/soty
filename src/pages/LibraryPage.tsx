@@ -92,7 +92,7 @@ function SongList({ songs, onChanged }: { songs: Song[]; onChanged: () => void }
   };
 
   return (
-    <Page help="songs" title="مكتبة أغانيّ" intro="أغانيكي في مكان واحد: لينك يوتيوب أو ملف صوت، السلم/المقام، الكلام والكوردات بتاعتك، ونتايجك في كل أغنية.">
+    <Page help="songs" title="مكتبة أغانيّ" intro="أغانيكي ونتايجك في مكان واحد.">
       <div className="row lib-actions">
         <a className="button-link primary" href="#/songs/new">
           ➕ أغنية جديدة
@@ -419,14 +419,6 @@ function SongEditor({ song, onSaved }: { song?: Song; onSaved: (id: string) => v
         </label>
         <label>
           ملف صوت مرجعي (اختياري — بيتحفظ على الجهاز ده)
-          {d.file && !removeFile && !file && (
-            <span className="hint">
-              متخزن: {d.file.name} ({mb(d.file.size)}){' '}
-              <button type="button" className="link danger" onClick={() => setRemoveFile(true)}>
-                شيليه
-              </button>
-            </span>
-          )}
           <input
             type="file"
             accept="audio/*"
@@ -436,6 +428,15 @@ function SongEditor({ song, onSaved }: { song?: Song; onSaved: (id: string) => v
             }}
           />
         </label>
+        {/* outside the label: a button inside it would be "the labelled control", so tapping the label removed the file */}
+        {d.file && !removeFile && !file && (
+          <p className="hint">
+            متخزن: {d.file.name} ({mb(d.file.size)}){' '}
+            <button type="button" className="link danger" onClick={() => setRemoveFile(true)}>
+              شيليه
+            </button>
+          </p>
+        )}
 
         <div className="key-row">
           <span>السلم/المقام:</span>

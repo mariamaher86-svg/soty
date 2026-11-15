@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { getGender } from './lib/gender';
 import { startMasculine } from './lib/genderDom';
+import { startPlainText } from './lib/plainText';
 import { installAudioUnlock } from './audio/audio';
 import { registerOffline } from './audio/offline';
 import { installLifecycle } from './lib/lifecycle';
@@ -36,6 +37,7 @@ if (!landing) installSync();
 const root = document.getElementById('root')!;
 // "نكلمك إزاي؟": the source text is feminine; masculine mode converts what's shown (see lib/genderDom)
 if (getGender() === 'm') startMasculine(root);
+startPlainText(root); // no emoji in body text (titles, buttons and icons keep theirs)
 
 createRoot(root).render(
   <StrictMode>

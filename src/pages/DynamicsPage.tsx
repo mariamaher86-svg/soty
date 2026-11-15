@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ErrorText, Page, Stat } from '../components/ui';
+import { ErrorText, Page, Stat, Score } from '../components/ui';
 import { useMic } from '../audio/useMic';
 import { playNote } from '../audio/sound';
 import { DYNAMICS_KINDS, loudHighWarning, scoreDynamics, targetShape, toDb, type DynamicsKind, type DynamicsScore, type DynFrame } from '../lib/dynamics';
@@ -84,7 +84,7 @@ export function DynamicsPage() {
   const nearTop = loudHighWarning(midi, range.high);
 
   return (
-    <Page tips mic help="dynamics" title="🎚️ العالي والواطي" intro="نفس النغمة، بس الصوت بيعلى أو بيوطى بالراحة — والنغمة نفسها متتهزش.">
+    <Page tips mic help="dynamics" title="🎚️ العالي والواطي" intro="نفس النغمة، والصوت يعلى ويوطى بالراحة.">
       <div className="panel">
         <div className="choices">
           {DYNAMICS_KINDS.map((k) => (
@@ -128,10 +128,10 @@ export function DynamicsPage() {
       </div>
       {score && (
         <div className="panel">
+          <Score value={`${score.total}%`}>
           <div className="stats">
             <Stat label="نعومة العلو" value={`${score.loudness}%`} />
             <Stat label="ثبات النغمة" value={`${score.pitch}%`} />
-            <Stat label="النتيجة" value={`${score.total}%`} />
           </div>
           <p className="hint">
             الفرق بين أوطى وأعلى: {score.rangeDb} ديسيبل{score.rangeDb < 10 ? ' — جربي فرق أكبر بين الهادي والعالي.' : '.'} الاهتزاز: ±{score.sdCents} سنت
@@ -139,6 +139,7 @@ export function DynamicsPage() {
           </p>
           {loudHighWarning(midi, range.high, score.peakDb) && <p className="warn-text">⚠️ علّيتي جامد على نغمة عالية — المرة الجاية خليها أهدى.</p>}
           <DynGraph frames={frames} kind={kind} seconds={info.seconds} />
+          </Score>
         </div>
       )}
     </Page>

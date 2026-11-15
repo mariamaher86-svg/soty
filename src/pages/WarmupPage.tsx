@@ -44,7 +44,7 @@ export function WarmupPage({ light, onDone }: { light?: boolean; onDone?: (parts
   };
 
   return (
-    <Page tips mic help="warmup" title="الإحماء" intro="حوالي ٣ دقايق قبل أي تمرين: ترعيش الشفايف، سيرينة، وهمهمة.">
+    <Page tips mic help="warmup" title="الإحماء" intro="٣ دقايق: بررر، سيرينة، وهمهمة.">
       <WarmupNote />
       <p className="hint">
         خطوة {Math.min(3, STEPS.indexOf(step) + 1)} من ٣
@@ -130,7 +130,7 @@ function Trill({ seconds, onNext }: { seconds: number; onNext: (real: boolean) =
           </button>
         </>
       )}
-      <StepNav
+      <StepNav nextLabel="الجزء اللي بعده ←" skipLabel="تخطي الجزء"
         ok={trillIsReal(sounding)}
         need="لسه محتاجين نسمع البررر ٥ ثواني على الأقل."
         onNext={() => {
@@ -237,7 +237,7 @@ function Siren({ seconds, mid, wide, onNext }: { seconds: number; mid: { low: nu
           </button>
         </>
       )}
-      <StepNav
+      <StepNav nextLabel="الجزء اللي بعده ←" skipLabel="تخطي الجزء"
         ok={!!result && sirenIsReal(result.voicedShare, result.seconds)}
         need="لسه محتاجين نسمع صوتك مع الخط ١٠ ثواني على الأقل."
         onNext={() => onNext(result?.avgCents ?? null)}
@@ -349,7 +349,7 @@ function Hum({ notes, onNext }: { notes: number[]; onNext: (real: boolean) => vo
           {phase === 'done' ? 'مرة كمان' : 'ابدئي'}
         </button>
       )}
-      <StepNav
+      <StepNav nextLabel="الجزء اللي بعده ←" skipLabel="تخطي الجزء"
         ok={humIsReal(results)}
         need="لسه محتاجين نسمع الهمهمة على نغمتين على الأقل."
         onNext={() => {

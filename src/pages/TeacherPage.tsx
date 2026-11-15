@@ -121,7 +121,7 @@ export function TeacherPage() {
       mic
       help="teacher"
       title="تسجيل صوت المعلم"
-      intro="أي حد صوته حلو (مدرّس أو مدرّسة) بيسجّل نغمات ثابتة. كل تسجيل بيتفحص: لازم يكون ثابت وفي حدود ±٣٠ سنت من النغمة، وإلا مش بيتحفظ."
+      intro="سجّلي نغمات ثابتة تتعزف بدل البيانو."
     >
       <div className="choices">
         <button className={mode === 'notes' ? 'chip active' : 'chip'} onClick={() => {

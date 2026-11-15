@@ -36,6 +36,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { backOf, TABS, tabOf } from './lib/nav';
 import { genderChosen } from './lib/gender';
 import { useOnline, useUpdateWaiting } from './audio/offline';
+import { browser } from './lib/reload';
 
 // To add a page: add a row here and a component in src/pages, and a card on the "التمارين" page (or a row on "المزيد").
 // `desc`/`home` are kept for reference; navigation is the bottom tab bar + the top bar's back button.
@@ -95,7 +96,7 @@ export default function App() {
       // not during an exercise, and not while she's typing in a form (a remount would lose what she wrote)
       const typing = document.activeElement?.matches('input, textarea, select');
       if (lifecycle.isBusy() || typing) return;
-      if (keys.includes('soty.pref.gender')) return window.location.reload(); // the wording switches on a fresh page
+      if (keys.includes('soty.pref.gender')) return browser.reload(); // the wording switches on a fresh page
       setEpoch((x) => x + 1);
     };
     window.addEventListener(SYNC_APPLIED_EVENT, onSync);

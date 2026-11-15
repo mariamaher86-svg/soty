@@ -88,7 +88,7 @@ export function FindNotePage({ onResult }: { onResult?: (found: number) => void 
   const doneCount = found.filter(Boolean).length;
 
   return (
-    <Page tips mic help="findnote" title="إزاي أجيب دو صح؟" intro="لو لسه صعب تمسكي النغمة: هنمسكها خطوة خطوة. اسمعي ← همهمي «مممم» بهدوء ← اطلعي أو انزلي ببطء لحد ما النقطة تيجي على الخط ← اثبتي ثانية.">
+    <Page tips mic help="findnote" title="إزاي أجيب دو صح؟" intro="اسمعي، همهمي، واطلعي أو انزلي لحد الخط.">
       <ErrorText text={error} />
       <SoundPicker />
       <div className="ladder-steps">

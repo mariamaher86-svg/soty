@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { YouTubeSearch } from '../components/Demo';
 import { LessonLink } from '../components/LessonLink';
-import { CentsMeter, ErrorText, Page, Stat } from '../components/ui';
+import { CentsMeter, ErrorText, Page, Stat, Options } from '../components/ui';
 import { SoundPicker } from '../components/SoundPicker';
 import { OctaveHint } from '../components/OctaveHint';
 import { HoldRing } from '../components/HoldRing';
@@ -131,7 +131,7 @@ export function MaqamPage({ maqamId: fixedMaqam, tonic: fixedTonic, slow, onResu
   const running = index !== null;
 
   return (
-    <Page tips mic help="maqam" title="المقامات" intro="هتسمعي كل درجة من المقام وتغنيها. الحكم على الربع تون الحقيقي، مش على أقرب نغمة بيانو.">
+    <Page tips mic help="maqam" title="المقامات" intro="اسمعي كل درجة وغنيها.">
       <YouTubeSearch k="maqam" />
       <LessonLink id="maqam" what="مقام" />
       {!range.fromTest && fixedTonic === undefined && <p className="hint">{NO_RANGE_HINT}</p>}
@@ -147,6 +147,7 @@ export function MaqamPage({ maqamId: fixedMaqam, tonic: fixedTonic, slow, onResu
               </button>
             ))}
           </div>
+          <Options label={`خيارات: ${DIRECTIONS.find((d) => d.id === direction)!.ar}، القرار ${quarterToneName(tonic).name}`}>
           <div className="choices">
             {DIRECTIONS.map((d) => (
               <button key={d.id} className={d.id === direction ? 'chip active' : 'chip'} onClick={() => setDirection(d.id)}>
@@ -165,6 +166,7 @@ export function MaqamPage({ maqamId: fixedMaqam, tonic: fixedTonic, slow, onResu
               +
             </button>
           </div>
+          </Options>
           <div className="row">
             <button onClick={playScale}>🔊 اسمعي المقام</button>
             <button className="big primary" onClick={begin}>

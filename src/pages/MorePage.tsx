@@ -17,7 +17,16 @@ const LINKS = [
   { href: '#/teacher', icon: '🎙️', ar: 'تسجيل صوت المعلم' },
 ];
 
-/** "⚙️ المزيد": settings, data backup, and the pages that aren't exercises. */
+/** A restored backup reloads the page with a message to show: open that section then. */
+function hasBackupNews(): boolean {
+  try {
+    return !!sessionStorage.getItem('soty.backup.restored');
+  } catch {
+    return false;
+  }
+}
+
+/** "المزيد": the pages that aren't exercises, then settings and data, folded. */
 export function MorePage() {
   const [theme, setThemeState] = useState<Theme>(getTheme);
   return (
@@ -36,8 +45,9 @@ export function MorePage() {
         ))}
       </nav>
 
-      <div className="panel">
-        <h2>الإعدادات</h2>
+      <details className="options more-section">
+        <summary>الإعدادات</summary>
+        <div className="options-body">
         <div className="setting">
           <b>نكلمك إزاي؟</b>
           <GenderButtons />
@@ -60,9 +70,15 @@ export function MorePage() {
           </div>
         </div>
         <NoiseSetting />
-      </div>
+        </div>
+      </details>
 
-      <BackupSection />
+      <details className="options more-section" open={hasBackupNews()}>
+        <summary>بياناتك ونسخة احتياطية</summary>
+        <div className="options-body">
+          <BackupSection />
+        </div>
+      </details>
     </Page>
   );
 }

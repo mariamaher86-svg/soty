@@ -2,6 +2,7 @@
 
 import { genderChosen, getGender, setGender, type Gender } from '../lib/gender';
 import { masculineRunning, startMasculine } from '../lib/genderDom';
+import { browser } from '../lib/reload';
 
 /** Applies a new choice. Masculine starts converting right away; going back to feminine needs a reload. */
 export function applyGender(next: Gender, { reload = true } = {}) {
@@ -10,10 +11,10 @@ export function applyGender(next: Gender, { reload = true } = {}) {
   if (!reload) {
     // inside the welcome: switch on the fly (going back to feminine after masculine needs a fresh page)
     if (next === 'm') startMasculine(document.getElementById('root')!);
-    else if (masculineRunning()) window.location.reload();
+    else if (masculineRunning()) browser.reload();
     return;
   }
-  if (next !== before) window.location.reload();
+  if (next !== before) browser.reload();
 }
 
 export function GenderButtons({ onChosen, reload = true }: { onChosen?: (g: Gender) => void; reload?: boolean }) {

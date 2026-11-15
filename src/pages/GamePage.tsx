@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ErrorText, Options, Page, Stat } from '../components/ui';
+import { ErrorText, Options, Page, Stat, Score } from '../components/ui';
 import { micErrorMessage, startMic, type Mic } from '../audio/audio';
 import { playNote } from '../audio/sound';
 import { courseLength, courseScore, GAME_LEVELS, gatePoints, inGate, makeCourse, midiToY, stepBird, type Gate } from '../lib/game';
@@ -219,7 +219,7 @@ export function GamePage() {
   };
 
   return (
-    <Page tips help="game" title="🎮 لعبة الصوت" intro="العصفورة بتطلع وتنزل مع صوتك: غني أعلى تطلع، أوطى تنزل. دخّليها جوه البوابات. لو سكتي بتنزل بالراحة — مفيش خسارة.">
+    <Page tips help="game" title="🎮 لعبة الصوت" intro="غني أعلى تطلع العصفورة، أوطى تنزل.">
       <div className="panel">
         <div className="choices">
           {GAME_LEVELS.map((l) => (
@@ -254,7 +254,7 @@ export function GamePage() {
       <div className="game-wrap">
         <canvas ref={canvas} className="game-canvas" aria-label="لعبة الصوت: العصفورة والبوابات" />
         {phase === 'idle' && <p className="game-overlay">دوسي «▶️ ابدئي اللعب» تحت.</p>}
-        {phase === 'pause' && <p className="game-overlay">⏸ واقفة</p>}
+        {phase === 'pause' && <p className="game-overlay">واقفة</p>}
       </div>
       <div className="row">
         {(phase === 'idle' || phase === 'done') && (
@@ -286,8 +286,9 @@ export function GamePage() {
       <ErrorText text={err} />
       {result && (
         <div className="panel center">
-          <Stat label="النقط" value={result.points} />
-          <p>جوه البوابات {result.percent}% من الوقت.</p>
+          <Score value={result.points} label="النقط">
+            <p>جوه البوابات {result.percent}% من الوقت.</p>
+          </Score>
           {result.best && <p className="ok-text">🏆 أعلى نتيجة ليكي في المستوى ده!</p>}
         </div>
       )}

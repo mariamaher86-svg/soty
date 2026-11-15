@@ -19,7 +19,7 @@ export function ProgressPage() {
   };
 
   return (
-    <Page help="progress" title="التقدم" intro="أحسن نتيجة في كل يوم لكل تمرين (آخر أسبوعين).">
+    <Page help="progress" title="التقدم" intro="أحسن نتيجة كل يوم، آخر أسبوعين.">
       <WeeklyLines />
       {!types.length && <p className="hint">لسه مفيش نتايج. ابدئي أي تمرين وهتلاقي تقدمك هنا.</p>}
       {types.map((type) => {

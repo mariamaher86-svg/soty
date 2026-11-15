@@ -49,8 +49,8 @@ export function Help({ id }: { id: HelpKey }) {
   }, [open]);
   return (
     <>
-      <button className="help-toggle" onClick={() => setOpen(true)}>
-        ❓ كيفية الاستخدام
+      <button className="icon-btn help-toggle" onClick={() => setOpen(true)} aria-label="كيفية الاستخدام">
+        ❓
       </button>
       {open && (
         <div className="modal-backdrop" onClick={() => setOpen(false)}>

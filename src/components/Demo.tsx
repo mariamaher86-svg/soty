@@ -5,15 +5,22 @@ import { audioContext } from '../audio/audio';
 import { midiToFreq } from '../lib/music';
 import { VIDEOS, youtubeSearchUrl, type VideoKey } from '../content/videos';
 import { useOnline } from '../audio/offline';
+import { InOptions } from './ui';
 
 /** "▶️ شوفي الطريقة على يوتيوب": a YouTube search in Arabic or English (queries in content/videos.ts). */
 export function YouTubeSearch({ k }: { k: VideoKey }) {
   const v = VIDEOS[k];
   const online = useOnline();
-  if (!online) return <span className="yt-search off">▶️ فيديوهات يوتيوب محتاجة إنترنت.</span>;
+  if (!online)
+    return (
+      <InOptions>
+        <span className="yt-search off">فيديوهات يوتيوب محتاجة إنترنت.</span>
+      </InOptions>
+    );
   return (
+    <InOptions>
     <span className="yt-search">
-      <span>▶️ فيديو للطريقة:</span>
+      <span>فيديو للطريقة:</span>
       <a className="tool-chip" href={youtubeSearchUrl(v.ar)} target="_blank" rel="noopener noreferrer">
         بالعربي
       </a>
@@ -21,6 +28,7 @@ export function YouTubeSearch({ k }: { k: VideoKey }) {
         English
       </a>
     </span>
+    </InOptions>
   );
 }
 

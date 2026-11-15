@@ -117,7 +117,7 @@ export function BadgesPage() {
   }, []);
   const earned = new Set(earnedBadges(ctx));
   return (
-    <Page help="badges" title="🏆 الأوسمة والتحدي" intro="تحدي صغير كل يوم على قد مستواكي، وأوسمة بتيجي لوحدها من نتايجك.">
+    <Page help="badges" title="🏆 الأوسمة والتحدي" intro="تحدي صغير كل يوم، وأوسمة من نتايجك.">
       <ChallengeCard />
       <p className="hint">
         التحديات اللي خلصتيها: {new Set(ctx.challengeDays).size} · الأوسمة: {earned.size} من {BADGES.length}

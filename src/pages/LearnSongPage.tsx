@@ -138,7 +138,7 @@ export function LearnSongPage({ song }: { song: Song }) {
   };
 
   return (
-    <Page tips mic help="learn" title={`🎓 تعلّم: ${song.title}`} intro="جملة جملة: اسمعي الجملة ← اسمعي نغماتها ببطء على البيانو ← غنيها لحد ما النتيجة تبقى ٧٠٪ أو أكتر ← الجملة اللي بعدها. وبعدين جملتين مع بعض، والأغنية كلها.">
+    <Page tips mic help="learn" title={`🎓 تعلّم: ${song.title}`} intro="اسمعي الجملة، وغنيها لحد ٧٠٪.">
       <p className="hint">
         اتعلمتي {phrases.filter((_, k) => learned(k)).length} من {phrases.length} جمل.
       </p>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { g } from '../lib/gender';
-import { EmbeddedContext, Page, Stat } from '../components/ui';
+import { EmbeddedContext, Page } from '../components/ui';
 import { RangePage } from './RangePage';
 import { MatchPage, type MatchStats } from './MatchPage';
 import { MaqamPage } from './MaqamPage';
@@ -570,12 +570,10 @@ export function PathPage() {
     day,
   );
   return (
-    <Page tips help="path" title="مسار المبتدئ" intro="كل يوم تمرين صغير (٧–١٠ دقايق)، وكل أسبوع قياس نشوف بيه إنتي اتحسنتي قد إيه.">
-      <div className="stats">
-        <Stat label="أيام ورا بعض" value={`🔥 ${days}`} />
-        <Stat label="تمارين خلصت" value={workoutsDone} />
-        <Stat label="مقام النهارده" value={maqam.ar} />
-      </div>
+    <Page tips help="path" title="مسار المبتدئ" intro="تمرين صغير كل يوم، وقياس كل أسبوع.">
+      <p className="hint path-line">
+        {days} {days === 1 ? 'يوم' : 'أيام'} ورا بعض · {workoutsDone} تمرين خلص · مقام النهارده: {maqam.ar}
+      </p>
 
       {restWarning && (
         <div className="error">

@@ -147,7 +147,7 @@ export function CarPage() {
   const preview = state === 'idle' ? buildCarSession(minutes, range.low, range.high, todaysMaqam(getPath().workouts.length)) : session.current;
 
   return (
-    <Page help="car" title="🚗 وضع العربية" intro="جلسة طويلة بالصوت بس: التطبيق بيقول بالكلام تعملي إيه، ويعزف النغمات، وإنتي تغني معاه. من غير ميكروفون ومن غير قراية.">
+    <Page help="car" title="🚗 وضع العربية" intro="جلسة بالصوت بس: اسمعي وغني معاه.">
       <div className="error car-safety">
         ⚠️ <b>متبصيش على الموبايل وانتي سايقة.</b> جهّزي كل حاجة (المدة، الصوت، السماعة أو بلوتوث العربية) <b>قبل</b> ما تتحركي، واضغطي ابدئي وانتي واقفة.
       </div>
@@ -165,7 +165,7 @@ export function CarPage() {
         <button className={'car-button ' + state} onClick={state === 'running' ? pause : play} aria-label={state === 'running' ? 'إيقاف مؤقت' : 'ابدئي'}>
           {state === 'running' ? '⏸' : '▶️'}
         </button>
-        <p className="car-line">{line || (state === 'idle' ? 'اضغطي ▶️ عشان تبدئي' : '')}</p>
+        <p className="car-line">{line || (state === 'idle' ? 'اضغطي الزرار الكبير عشان تبدئي' : '')}</p>
         <p className="hint">
           {Math.floor(elapsed / 60)} من حوالي {Math.round(total / 60)} دقيقة
         </p>

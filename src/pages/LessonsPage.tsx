@@ -521,7 +521,7 @@ export function LessonsPage() {
   const progress = getLessonProgress();
   const going = LESSONS.find((l) => !done[l.id] && readCount(progress, l.id) > 0);
   return (
-    <Page tips help="lessons" title="🎓 أساسيات الموسيقى" intro="دروس تذاكري منها: كل درس أجزاء قصيرة بأمثلة تسمعيها، وخلاصة، واختبار.">
+    <Page tips help="lessons" title="🎓 أساسيات الموسيقى" intro="أجزاء قصيرة بأمثلة، وخلاصة، واختبار.">
       <p className="hint">
         خلصتي {count} من {LESSONS.length}.
       </p>

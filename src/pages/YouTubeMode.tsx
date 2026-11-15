@@ -218,10 +218,12 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
       <ErrorText text={error || err} />
 
       <div className="panel">
-        <label className="file">
-          <span>لينك الفيديو من يوتيوب</span>
+        {/* the label holds only the field: a button inside it would be pressed by tapping the label text */}
+        <div className="file">
+          <label htmlFor="yt-url">لينك الفيديو من يوتيوب</label>
           <div className="url-row">
             <input
+              id="yt-url"
               type="url"
               dir="ltr"
               inputMode="url"
@@ -235,7 +237,7 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
               افتحي
             </button>
           </div>
-        </label>
+        </div>
 
         <div className="key-row">
           <span>سلم الأغنية:</span>

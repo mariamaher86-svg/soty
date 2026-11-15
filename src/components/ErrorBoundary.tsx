@@ -3,6 +3,7 @@
 import { Component, useState, type ReactNode } from 'react';
 import { Options } from './ui';
 import { clearLog, formatReport, logError, readLog } from '../lib/errorLog';
+import { browser } from '../lib/reload';
 
 interface Props {
   children: ReactNode;
@@ -20,7 +21,7 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
   }
   render() {
     if (!this.state.failed) return this.props.children;
-    const again = () => (this.props.whole ? window.location.reload() : this.setState({ failed: false }));
+    const again = () => (this.props.whole ? browser.reload() : this.setState({ failed: false }));
     return (
       <div className="panel center crash-screen" role="alert">
         <h2>حصلت مشكلة — دوسي ترجعي</h2>

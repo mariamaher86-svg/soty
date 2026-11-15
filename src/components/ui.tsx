@@ -1,6 +1,7 @@
 // Small shared UI pieces.
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { nearestNote, noteName, noteNameAr } from '../lib/music';
 import { today } from '../lib/storage';
 import { BeforeTraining } from './BeforeTraining';
@@ -11,34 +12,111 @@ import type { HelpKey } from '../content/help';
 /** Inside the beginner path an exercise is shown without its own title (the path gives the instructions). */
 export const EmbeddedContext = createContext(false);
 
-/** `tips` = the "before you start" card (sound/mic pages); `mic` = also the optional room-noise check; `help` = the "❓ كيفية الاستخدام" popup button. */
+/** Where secondary things go on an exercise page: the "⚙️ خيارات" sheet. Null = show them in place. */
+const OptionsSlot = createContext<{ el: HTMLElement | null; register: () => () => void } | null>(null);
+
+/** Puts its children in the page's "⚙️ خيارات" sheet (sound, speed, videos, lesson links…), or in place if there's none. */
+export function InOptions({ children }: { children: ReactNode }) {
+  const slot = useContext(OptionsSlot);
+  useEffect(() => slot?.register(), [slot]);
+  if (!slot) return <>{children}</>;
+  return slot.el ? createPortal(children, slot.el) : null;
+}
+
+/**
+ * One screen: a title, one short instruction line, the ❓ how-to and the ⚙️ options sheet; the page body is just the
+ * exercise. `tips` = the iPhone sound tips, `mic` = the room-noise check, both inside the options sheet.
+ */
 export function Page({ title, intro, tips, mic, help, children }: { title: string; intro?: ReactNode; tips?: boolean; mic?: boolean; help?: HelpKey; children: ReactNode }) {
-  if (useContext(EmbeddedContext)) return <div className="embedded">{children}</div>;
+  const embedded = useContext(EmbeddedContext);
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  const [count, setCount] = useState(0);
+  const [open, setOpen] = useState(false);
+  const register = useCallback(() => {
+    setCount((c) => c + 1);
+    return () => setCount((c) => c - 1);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+  const slot = useMemo(() => ({ el, register }), [el, register]);
+  if (embedded) return <div className="embedded">{children}</div>;
+  const hasOptions = tips || mic || count > 0;
   return (
-    <section className="page">
-      <header className="page-head">
-        <h1>{title}</h1>
-        {help && <Help id={help} />}
-      </header>
-      {intro && <p className="intro">{intro}</p>}
-      {(tips || mic) && (
-        <div className="page-tools">
-          {tips && <BeforeTraining />}
-          {mic && <NoiseCheck />}
+    <OptionsSlot.Provider value={slot}>
+      <section className="page">
+        <header className="page-head">
+          <h1>{title}</h1>
+          <div className="page-actions">
+            {help && <Help id={help} />}
+            <button className="icon-btn options-toggle" hidden={!hasOptions} onClick={() => setOpen(true)} aria-label="خيارات" aria-expanded={open}>
+              ⚙️
+            </button>
+          </div>
+        </header>
+        {intro && <p className="intro">{intro}</p>}
+        {children}
+        <div className="sheet-backdrop" hidden={!open} onClick={() => setOpen(false)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="خيارات" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-head">
+              <h2>خيارات</h2>
+              <button className="icon-btn" onClick={() => setOpen(false)} aria-label="قفل الخيارات">
+                ✕
+              </button>
+            </div>
+            {(tips || mic) && (
+              <div className="page-tools">
+                {tips && <BeforeTraining />}
+                {mic && <NoiseCheck />}
+              </div>
+            )}
+            <div className="sheet-body" ref={setEl} />
+            <button className="big primary" onClick={() => setOpen(false)}>
+              تمام
+            </button>
+          </div>
         </div>
-      )}
-      {children}
-    </section>
+      </section>
+    </OptionsSlot.Provider>
   );
 }
 
-/** "خيارات": secondary settings folded away so the screen shows one main action. */
+/** "خيارات": secondary settings. On a page they go in its ⚙️ sheet; elsewhere they fold away in place. */
 export function Options({ label = 'خيارات', children, open }: { label?: string; children: ReactNode; open?: boolean }) {
+  const slot = useContext(OptionsSlot);
+  if (slot)
+    return (
+      <InOptions>
+        <section className="options-group">
+          <h3>{label.replace(/^خيارات:?\s*/, '') || 'خيارات'}</h3>
+          {children}
+        </section>
+      </InOptions>
+    );
   return (
     <details className="options" open={open}>
       <summary>{label}</summary>
       <div className="options-body">{children}</div>
     </details>
+  );
+}
+
+/** A result: one big number, the rest folded under "التفاصيل". */
+export function Score({ value, label = 'النتيجة', children }: { value: ReactNode; label?: string; children?: ReactNode }) {
+  return (
+    <div className="score">
+      <div className="score-value">{value}</div>
+      <div className="score-label">{label}</div>
+      {children && (
+        <details className="score-details">
+          <summary>التفاصيل</summary>
+          {children}
+        </details>
+      )}
+    </div>
   );
 }
 

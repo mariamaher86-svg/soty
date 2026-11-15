@@ -52,7 +52,7 @@ export function RangePage({ onResult }: { onResult?: (low: number, high: number)
   const voice = low !== null && high !== null && high > low ? classifyVoice(low, high, getGender()) : null;
 
   return (
-    <Page tips mic help="range" title="اختبار المساحة الصوتية" intro="هنعرف أوطى وأعلى نغمة تقدري تثبتي عليها براحة، ومنها طبقة صوتك. التمارين التانية هتختار نغمات على قد صوتك.">
+    <Page tips mic help="range" title="اختبار المساحة الصوتية" intro="غني أوطى نغمة، وبعدين أعلى نغمة.">
       <ErrorText text={error} />
 
       {step === 'intro' && (

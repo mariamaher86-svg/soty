@@ -2,7 +2,6 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { YouTubeSearch } from '../components/Demo';
 import { canAnswer, canReplay, initialQ, qReducer } from '../lib/questionFlow';
 import { LessonLink } from '../components/LessonLink';
-import { g } from '../lib/gender';
 import { Page, Stat } from '../components/ui';
 import { SoundPicker } from '../components/SoundPicker';
 import { playNote } from '../audio/sound';
@@ -148,7 +147,7 @@ export function EarPage({ level: fixedLevel, onResult }: { level?: EarLevel; onR
   const rightAnswerText = q ? options(q).find(([v]) => isRight(q, v))?.[1] : '';
 
   return (
-    <Page tips help="ear" title="تدريب الودن" intro="سماع بس، من غير ميكروفون. كل مستوى بيفتح لما تجيبي ٨ صح من آخر ١٠ في اللي قبله، وتقدري ترجعي لأي مستوى فتحتيه.">
+    <Page tips help="ear" title="تدريب الودن" intro="اسمعي النغمتين واختاري الإجابة.">
       <YouTubeSearch k="ear" />
       <LessonLink id="note" what="نغمة أعلى وأوطى" />
       <SoundPicker />
@@ -173,8 +172,8 @@ export function EarPage({ level: fixedLevel, onResult }: { level?: EarLevel; onR
         <p className="hint">{info.desc}</p>
         <div className="stats">
           <Stat label={`صح من آخر ${PASS_WINDOW}`} value={`${rightInWindow(answers)} / ${Math.min(PASS_WINDOW, answers.length)}`} />
-          <Stat label={`${g('محتاجة', 'محتاج')} عشان المستوى الجاي`} value={`${PASS_RIGHT} من ${PASS_WINDOW}`} />
         </div>
+        <p className="hint">المستوى الجاي: {PASS_RIGHT} صح من {PASS_WINDOW}.</p>
 
         {!q ? (
           <button className="big primary" onClick={() => next()}>

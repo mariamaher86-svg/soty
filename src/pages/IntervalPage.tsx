@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { YouTubeSearch } from '../components/Demo';
 import { LessonLink } from '../components/LessonLink';
-import { g } from '../lib/gender';
 import { CentsMeter, ErrorText, LiveNote, Page, Stat } from '../components/ui';
 import { SoundPicker } from '../components/SoundPicker';
 import { OctaveHint } from '../components/OctaveHint';
@@ -111,7 +110,7 @@ export function IntervalPage({ level: fixedLevel, onResult }: { level?: number; 
   const answers = history[level] ?? [];
 
   return (
-    <Page tips mic help="intervals" title="غنا الفواصل" intro="هتسمعي نغمة، وتغني المسافة المطلوبة فوقها (وبعدين تحتها). النجاح = في حدود ±٢٥ سنت لمدة ثانية.">
+    <Page tips mic help="intervals" title="غنا الفواصل" intro="اسمعي النغمة، وغني المسافة المطلوبة.">
       <YouTubeSearch k="intervals" />
       <LessonLink id="tone" what="تون ونص تون (المسافات)" />
       <ErrorText text={error} />
@@ -136,8 +135,8 @@ export function IntervalPage({ level: fixedLevel, onResult }: { level?: number; 
         </h2>
         <div className="stats">
           <Stat label={`صح من آخر ${PASS_WINDOW}`} value={`${rightInWindow(answers)} / ${Math.min(PASS_WINDOW, answers.length)}`} />
-          <Stat label={`${g('محتاجة', 'محتاج')} عشان المستوى الجاي`} value={`${PASS_RIGHT} من ${PASS_WINDOW}`} />
         </div>
+        <p className="hint">المستوى الجاي: {PASS_RIGHT} صح من {PASS_WINDOW}.</p>
 
         {!task || !info ? (
           <button className="big primary" onClick={next}>

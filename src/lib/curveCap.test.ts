@@ -12,7 +12,7 @@ const memStore = () => {
 };
 
 describe('live logs cannot grow without limit', () => {
-  it('60 readings a second become about 20; an hour of singing stays under the cap', () => {
+  it('regression (memory caps): 60 readings a second become about 20; an hour of singing stays under the cap', () => {
     const log = new CurveLog<PitchPoint>();
     for (let i = 0; i < 600; i++) log.add({ t: i / 60, freq: 220 });
     expect(log.length).toBeGreaterThanOrEqual(190);
@@ -37,7 +37,7 @@ describe('live logs cannot grow without limit', () => {
     }
     expect(Math.abs(compareCurves(light.points, ref).score - compareCurves(full, ref).score)).toBeLessThanOrEqual(5);
   });
-  it('repeat scores are capped', () => {
+  it('regression (memory caps): repeat scores are capped', () => {
     let s: number[] = [];
     for (let i = 0; i < 500; i++) s = pushCapped(s, i);
     expect(s).toHaveLength(200);

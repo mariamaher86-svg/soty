@@ -30,6 +30,8 @@ jobs:
           cache: npm
 
       - run: npm ci
+      # every test (logic and pages) and the type check must pass, or nothing is published
+      - run: npm run typecheck
       - run: npm test
       - run: npm run build
 

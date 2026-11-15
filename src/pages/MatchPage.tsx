@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { YouTubeSearch } from '../components/Demo';
-import { CentsMeter, ErrorText, LiveNote, Page, Stat } from '../components/ui';
+import { CentsMeter, ErrorText, LiveNote, Page, Stat, Score } from '../components/ui';
 import { SoundPicker } from '../components/SoundPicker';
 import { OctaveHint } from '../components/OctaveHint';
 import { HoldRing } from '../components/HoldRing';
@@ -126,17 +126,20 @@ export function MatchPage({ range: fixedRange, onResult }: { range?: { low: numb
   const g = cents !== null ? guidance(cents, TOLERANCE) : null;
 
   return (
-    <Page tips mic help="match" title="مطابقة النغمة" intro={`هتسمعي نغمة، غنيها واثبتي عليها ثانية في حدود ±${TOLERANCE} سنت.`}>
+    <Page tips mic help="match" title="مطابقة النغمة" intro="اسمعي النغمة، وغنيها واثبتي عليها ثانية.">
       <YouTubeSearch k="matchPitch" />
       {!range.fromTest && <p className="hint">{NO_RANGE_HINT}</p>}
       <ErrorText text={error} />
       <SoundPicker />
 
-      <div className="stats">
-        <Stat label="صح" value={hits} />
-        <Stat label="محاولات" value={tries} />
-        <Stat label="النتيجة" value={`${percent(hits, tries)}%`} />
-      </div>
+      {tries > 0 && (
+        <Score value={`${percent(hits, tries)}%`}>
+          <div className="stats">
+            <Stat label="صح" value={hits} />
+            <Stat label="محاولات" value={tries} />
+          </div>
+        </Score>
+      )}
 
       {target === null ? (
         <>

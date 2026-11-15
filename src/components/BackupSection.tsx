@@ -13,6 +13,7 @@ import { applyAppStorage, getSongs, readAppStorage, saveSongs } from '../lib/sto
 import { deleteSongFile, listSongFiles, mb, saveSongFile } from '../audio/songFiles';
 import { partKey, songIdOfKey } from '../lib/choir';
 import { backupFileName, base64ToBytes, base64ToFloat, buildBackup, describeBackup, estimateBackupBytes, planSongFiles, planStorage, planTeacher, validateBackup, type Backup } from '../lib/backup';
+import { browser } from '../lib/reload';
 
 const DONE_FLAG = 'soty.backup.restored';
 
@@ -136,7 +137,7 @@ export function BackupSection() {
     } catch {
       // ignore
     }
-    window.location.reload(); // every page re-reads the restored data
+    browser.reload(); // every page re-reads the restored data
   };
 
   const info = pending ? describeBackup(pending) : null;
@@ -211,7 +212,7 @@ export function BackupSection() {
           onClick={() => {
             showWelcomeAgain();
             window.location.hash = '#/';
-            window.location.reload();
+            browser.reload();
           }}
         >
           👋 عرض الترحيب تاني

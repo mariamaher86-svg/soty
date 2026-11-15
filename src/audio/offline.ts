@@ -2,14 +2,16 @@
 // is waiting, and whether we're online.
 
 import { useEffect, useState } from 'react';
+import { browser } from '../lib/reload';
 
 let waiting: ServiceWorker | null = null;
 let updating = false; // set when the user taps "حدّثي"
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
 
-export function registerOffline() {
-  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
+/** `prod`: only the production build has a service worker (tests pass true with a fake one). */
+export function registerOffline(prod: boolean = import.meta.env.PROD) {
+  if (!prod || !('serviceWorker' in navigator)) return;
   void (async () => {
     try {
       const reg = await navigator.serviceWorker.register('./sw.js');
@@ -36,7 +38,7 @@ export function registerOffline() {
         // the first install also takes control (clients.claim) — only reload for an update she asked for
         if (reloaded || !updating) return;
         reloaded = true;
-        window.location.reload(); // the new version took over: load it fully (never a mix)
+        browser.reload(); // the new version took over: load it fully (never a mix)
       });
     } catch {
       // no offline support (private mode, old browser) — the app still works online
