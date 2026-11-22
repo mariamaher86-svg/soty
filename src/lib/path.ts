@@ -88,32 +88,39 @@ export function shiftDay(day: string, by: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Steps of today's workout (minutes are suggestions). Warm-up first, ears and intervals last. A lighter plan after a tired day. */
-export function workoutPlan(light: boolean, lesson = false, findNote = false, rhythm = false): { step: 'lesson' | 'findnote' | 'warmup' | 'hiss' | 'match' | 'sustain' | 'maqam' | 'ear' | 'intervals' | 'rhythm'; minutes: number }[] {
-  // first week, once "what is a note" is done: the guided note ladder instead of pitch matching
-  if (findNote) return workoutPlan(light, lesson).map((s) => (s.step === 'match' ? { step: 'findnote' as const, minutes: s.minutes } : s));
-  // while music-basics lessons remain: one lesson first, and interval singing waits until the basics are done
-  if (lesson) return [{ step: 'lesson', minutes: 2 }, ...workoutPlan(light).filter((s) => s.step !== 'intervals')];
-  // after the basics: every other day the last step is rhythm instead of intervals
-  if (rhythm) return workoutPlan(light).map((s) => (s.step === 'intervals' ? { step: 'rhythm' as const, minutes: 2 } : s));
-  if (light)
-    return [
-      { step: 'warmup', minutes: 2 },
-      { step: 'match', minutes: 2 },
-      { step: 'ear', minutes: 2 },
-    ];
-  return [
-    { step: 'warmup', minutes: 3 },
-    { step: 'hiss', minutes: 1 },
-    { step: 'match', minutes: 2 },
-    { step: 'sustain', minutes: 1 },
-    { step: 'maqam', minutes: 2 },
-    { step: 'ear', minutes: 2 },
-    { step: 'intervals', minutes: 2 },
-  ];
+/** Voice workouts before intervals open: the first week of real practice. */
+export const FIRST_WEEK = 7;
+
+export type WorkoutStep = 'findnote' | 'warmup' | 'hiss' | 'match' | 'sustain' | 'maqam' | 'ear' | 'intervals' | 'rhythm';
+
+/**
+ * Steps of today's workout (minutes are suggestions): voice only, never lessons. Warm-up first, ears and intervals last;
+ * a lighter plan after a tired day. Gated by her voice practice alone: for her first FIRST_WEEK counted workouts the
+ * guided note ladder replaces pitch matching and there's no interval singing; after that intervals open, alternating
+ * with rhythm.
+ */
+export function workoutPlan(light: boolean, workoutsDone = FIRST_WEEK): { step: WorkoutStep; minutes: number }[] {
+  const base: { step: WorkoutStep; minutes: number }[] = light
+    ? [
+        { step: 'warmup', minutes: 2 },
+        { step: 'match', minutes: 2 },
+        { step: 'ear', minutes: 2 },
+      ]
+    : [
+        { step: 'warmup', minutes: 3 },
+        { step: 'hiss', minutes: 1 },
+        { step: 'match', minutes: 2 },
+        { step: 'sustain', minutes: 1 },
+        { step: 'maqam', minutes: 2 },
+        { step: 'ear', minutes: 2 },
+        { step: 'intervals', minutes: 2 },
+      ];
+  if (workoutsDone < FIRST_WEEK) return base.filter((s) => s.step !== 'intervals').map((s) => (s.step === 'match' ? { step: 'findnote', minutes: s.minutes } : s));
+  if (isRhythmDay(workoutsDone)) return base.map((s) => (s.step === 'intervals' ? { step: 'rhythm', minutes: 2 } : s));
+  return base;
 }
 
-/** Basics done: rhythm days alternate with interval days. */
+/** After the first week: rhythm days alternate with interval days. */
 export const isRhythmDay = (workoutsDone: number) => workoutsDone % 2 === 1;
 
 /** Lighter plan if the last workout (yesterday or today) felt a bit tiring. */

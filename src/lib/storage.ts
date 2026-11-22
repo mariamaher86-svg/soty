@@ -2,8 +2,9 @@
 
 import { logError } from './errorLog';
 import type { Measurement, WorkoutLog } from './path';
+import { addExamRecord, parseExamHistory, type ExamRecord } from './exam';
 
-export type ResultType = 'range' | 'match' | 'maqam' | 'sustain' | 'stability' | 'hiss' | 'singalong' | 'scale' | 'ear-pitch' | 'ear-same' | 'ear-interval' | 'ear-maqam' | 'intervals' | 'loop' | 'vocalise' | 'findnote' | 'phrase' | 'rhythm' | 'game' | 'dynamics' | 'piano' | 'piano-vocalise';
+export type ResultType = 'range' | 'match' | 'maqam' | 'sustain' | 'stability' | 'hiss' | 'singalong' | 'scale' | 'ear-pitch' | 'ear-same' | 'ear-interval' | 'ear-maqam' | 'intervals' | 'loop' | 'vocalise' | 'findnote' | 'phrase' | 'rhythm' | 'game' | 'dynamics' | 'piano' | 'piano-vocalise' | 'exam';
 
 export interface SavedRange {
   low: number; // MIDI
@@ -289,6 +290,15 @@ export function saveLessonProgress(p: Record<string, { read: number[]; last: num
   setPref('lessons.progress', JSON.stringify(p));
 }
 
-/** The day the beginner path's part of a lesson was last read. */
-export const getLessonDay = () => getPref('lessons.day');
-export const markLessonDay = (day: string) => setPref('lessons.day', day);
+/** Comprehensive-exam history (a pref: in the backup and in sync). */
+export function getExamHistory(): ExamRecord[] {
+  return parseExamHistory(getPref('exam.history'));
+}
+
+export function saveExamRecord(r: ExamRecord) {
+  setPref('exam.history', JSON.stringify(addExamRecord(getExamHistory(), r)));
+  addResult('exam', Math.round((r.right / Math.max(1, r.total)) * 100), `${r.right}/${r.total}`);
+}
+
+/** Days with a voice result: lessons and exams don't make a workout day count. */
+export const voiceResultDates = () => new Set(getResults().filter((r) => r.type !== 'exam').map((r) => r.date));

@@ -13,7 +13,7 @@ describe('lessons content', () => {
       expect(l.sections.length).toBeGreaterThanOrEqual(4);
       expect(l.sections.length).toBeLessThanOrEqual(8);
       expect(l.summary.length).toBeGreaterThanOrEqual(2);
-      expect(l.pool.length).toBeGreaterThan(10);
+      expect(l.pool.length, l.id).toBeGreaterThanOrEqual(15); // enough that a retake differs
       for (const q of l.pool) expect(q.answer).toBeLessThan(q.options.length);
     }
   });
@@ -83,8 +83,7 @@ describe('beginner path: one lesson a day', () => {
     const all = Object.fromEntries(LESSONS.map((l) => [l.id, '2026-10-01']));
     expect(todaysLesson(all, '2026-10-20')).toBeNull();
   });
-  it('the lesson is the first workout step', () => {
-    expect(workoutPlan(false, true)[0].step).toBe('lesson');
-    expect(workoutPlan(false, false)[0].step).toBe('warmup');
+  it('lessons are never part of the daily workout', () => {
+    for (let done = 0; done < 20; done++) for (const light of [false, true]) expect(workoutPlan(light, done).map((s) => s.step as string)).not.toContain('lesson');
   });
 });

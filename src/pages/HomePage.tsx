@@ -1,6 +1,9 @@
 import { GenderCard } from '../components/GenderChoice';
 import { g } from '../lib/gender';
 import { pathSummary } from './PathPage';
+import { lessonById, todaysLesson } from '../content/lessons';
+import { readCount } from '../lib/lessonProgress';
+import { getLessonProgress, getLessonsDone, today } from '../lib/storage';
 
 const TILES = [
   { href: '#/lessons', icon: '🎓', title: 'الدروس' },
@@ -13,6 +16,10 @@ export function HomePage({ askGender, onGenderDone }: { askGender: boolean; onGe
   const { streak, next, started } = pathSummary();
   const doneToday = next.includes('✔');
   const weekly = next.includes('الأسبوعي');
+  // lessons are their own habit: one optional line, never part of the workout
+  const lessonId = todaysLesson(getLessonsDone(), today());
+  const lesson = lessonId ? lessonById(lessonId)! : null;
+  const lessonHref = lesson ? `#/lessons/${lesson.id}${readCount(getLessonProgress(), lesson.id) ? '/resume' : ''}` : '';
   return (
     <section className="page home">
       {askGender && <GenderCard onDone={onGenderDone} />}
@@ -33,6 +40,11 @@ export function HomePage({ askGender, onGenderDone }: { askGender: boolean; onGe
             {streak} {streak === 1 ? 'يوم' : 'أيام'} ورا بعض
           </p>
         </>
+      )}
+      {lesson && (
+        <a className="home-lesson" href={lessonHref}>
+          درس النهارده (اختياري): {lesson.title}
+        </a>
       )}
       <nav className="tiles" aria-label="ادخلي على">
         {TILES.map((t) => (

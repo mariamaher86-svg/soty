@@ -117,6 +117,11 @@ function shuffled<T>(list: T[], next: () => number): T[] {
   return a;
 }
 
+/** A list in a random order that a seed repeats. */
+export function seededShuffle<T>(list: T[], seed: number): T[] {
+  return shuffled(list, random(seed * 2654435761 + 1));
+}
+
 export const QUIZ_SIZE = 10;
 
 /** `count` different questions from the pool, in a new order, with their options shuffled too. */

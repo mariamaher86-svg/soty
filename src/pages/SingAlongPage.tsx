@@ -10,6 +10,8 @@ import { compareCurves, type CompareResult, type PitchPoint } from '../lib/compa
 import { CurveLog } from '../lib/curveCap';
 import { analyzeSong, curveKey, releaseAudio } from '../audio/songAnalysis';
 import { addResult, getPref, getSongs, setPref } from '../lib/storage';
+import { HeadphonesCheck } from '../components/HeadphonesCheck';
+import { getHeadphoneState, resultsReliable, type HeadphoneState } from '../lib/headphones';
 import { getSongFile } from '../audio/songFiles';
 import type { Song } from '../lib/songs';
 
@@ -42,11 +44,16 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
   const loopEl = useRef<HTMLAudioElement | null>(null);
   const mounted = useRef(true);
 
-  const { frame, error, start, stop } = useMic((f) => {
-    const p = player.current;
-    if (!p || p.paused) return;
-    frames.current.add({ t: Math.max(0, p.currentTime - LATENCY), freq: f.freq });
-  });
+  const [hp, setHp] = useState<HeadphoneState>(getHeadphoneState);
+  const { frame, error, start, stop } = useMic(
+    (f) => {
+      const p = player.current;
+      if (!p || p.paused) return;
+      frames.current.add({ t: Math.max(0, p.currentTime - LATENCY), freq: f.freq });
+    },
+    undefined,
+    { echoCancel: true }, // the music may come out of the speaker
+  );
 
   useEffect(() => () => void (recUrl && URL.revokeObjectURL(recUrl)), [recUrl]);
 
@@ -153,7 +160,7 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
       const endT = s[s.length - 1].t;
       const r = compareCurves(s, curve.filter((p) => p.t <= endT));
       setResult(r);
-      addResult('singalong', r.score, song?.title ?? refFile?.name, { songId: song?.id, moments: r.offRanges });
+      if (resultsReliable(hp)) addResult('singalong', r.score, song?.title ?? refFile?.name, { songId: song?.id, moments: r.offRanges });
     }
   }
 
@@ -219,6 +226,7 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
               </>
             ) : (
               <>
+                <HeadphonesCheck onChange={setHp} />
                 <button className="big primary" onClick={begin}>
                   🎤 {sung ? 'غني تاني' : 'ابدئي الغنا'}
                 </button>
@@ -238,10 +246,12 @@ function FileMode({ song, pendingLoop }: { song?: Song; pendingLoop?: Moment | n
           score={(s, w) => scoreRepeat(s, curve, w)}
           label={song?.title ?? refFile?.name ?? 'ملف'}
           songId={song?.id}
+          save={resultsReliable(hp)}
           onClose={() => setLoopMoment(null)}
         />
       )}
 
+      {result && !recording && !resultsReliable(hp) && <p className="warn-text not-accurate">مش دقيقة (من غير سماعات) — ومش متحفظة في تقدمك.</p>}
       {result && !recording && (
         <div className="panel">
           <div className="stats">

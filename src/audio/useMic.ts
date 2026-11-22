@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { micErrorMessage, startMic, type Mic, type MicFrame } from './audio';
+import { micErrorMessage, startMic, type Mic, type MicFrame, type MicOptions } from './audio';
 
 /** How often the live reading on screen updates. */
 const SHOW_MS = 66;
@@ -10,7 +10,7 @@ export const MIC_LOST = 'المايك وقف لما خرجتي من التطبي
  * Microphone hook. `onFrame` runs on every frame (keep exercise logic there);
  * `frame` is the latest reading for display.
  */
-export function useMic(onFrame?: (f: MicFrame) => void, minClarity?: number) {
+export function useMic(onFrame?: (f: MicFrame) => void, minClarity?: number, options?: MicOptions) {
   const [frame, setFrame] = useState<MicFrame | null>(null);
   const [on, setOn] = useState(false);
   const [error, setError] = useState('');
@@ -53,6 +53,7 @@ export function useMic(onFrame?: (f: MicFrame) => void, minClarity?: number) {
             setFrame(null);
             setError(MIC_LOST);
           },
+          options,
         );
         if (cancelled.current) {
           m.stop();

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CentsMeter, Page } from '../components/ui';
+import { CentsMeter, Page, Score } from '../components/ui';
 import { HoldRing } from '../components/HoldRing';
 import { PianoKeyboard } from '../components/PianoKeyboard';
 import { SoundPicker } from '../components/SoundPicker';
@@ -10,10 +10,12 @@ import { click } from '../audio/metronome';
 import { useMic } from '../audio/useMic';
 import { GLOSSARY_TERMS, LESSONS, lessonById, quizPassed, scoreQuiz, soundFreqs, soundOffsets, termByKey, type Block, type Lesson, type LessonSection, type Sound } from '../content/lessons';
 import { centsToTarget, nearestKey, PIANO_HOLD_MS, PIANO_TOLERANCE, targetFreq, type Quarter } from '../lib/keyboard';
-import { drawQuiz, isRead, markRead, readCount, resumeSection, setLast, type LessonProgress, type Reading } from '../lib/lessonProgress';
+import { drawQuiz, isRead, markRead, readCount, resumeSection, setLast, type LessonProgress } from '../lib/lessonProgress';
 import { HoldTracker } from '../lib/stats';
 import { AJNAS, buildScale, INTERVALS, maqamChart, NOTE_VALUES, stepName, tonicOffset, triad } from '../lib/theory';
-import { getLessonProgress, getLessonsDone, markLessonDone, saveLessonProgress } from '../lib/storage';
+import { getExamHistory, getLessonProgress, getLessonsDone, markLessonDone, saveExamRecord, saveLessonProgress, today } from '../lib/storage';
+import { drawExam, EXAM_SIZES, lessonsToRevise, scoreByLesson } from '../lib/exam';
+import { g } from '../lib/gender';
 import { inUserOctave } from '../lib/voice';
 import { exerciseRange } from './common';
 
@@ -490,12 +492,177 @@ function SummaryBox({ lesson }: { lesson: Lesson }) {
   );
 }
 
-/** #/lessons, #/lessons/glossary[/<term>], #/lessons/summaries, #/lessons/<id>[/resume] */
+/** "📝 امتحان شامل": random questions from the lessons she finished; a score per lesson says what to revise. */
+function ExamView() {
+  const done = getLessonsDone();
+  const finished = LESSONS.filter((l) => done[l.id]);
+  const available = finished.reduce((n, l) => n + l.pool.length, 0);
+  const [size, setSize] = useState<number | null>(null);
+  const [seed, setSeed] = useState(() => Date.now() % 100000);
+  const items = useMemo(() => (size ? drawExam(LESSONS, finished.map((l) => l.id), size, seed) : []), [size, seed]);
+  const [answers, setAnswers] = useState<(number | null)[]>([]);
+  const [qi, setQi] = useState(0);
+  const [finishedExam, setFinishedExam] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const history = getExamHistory();
+
+  if (!finished.length) {
+    const first = LESSONS[0];
+    return (
+      <div className="panel center">
+        <p>الامتحان الشامل بيسأل من الدروس اللي {g('خلصتيها', 'خلصتها')}، ولسه مفيش درس خلص. ولا يهمك، ابدئي بأول درس.</p>
+        <a className="button-link big primary" href={`#/lessons/${first.id}`}>
+          {first.icon} {first.title}
+        </a>
+      </div>
+    );
+  }
+
+  if (!size)
+    return (
+      <div className="panel center">
+        <p>
+          أسئلة عشوائية من الـ{finished.length} {finished.length === 1 ? 'درس' : 'دروس'} اللي {g('خلصتيها', 'خلصتها')}. اختاري الطول:
+        </p>
+        <div className="row">
+          {EXAM_SIZES.map((n) => (
+            <button key={n} className="big" disabled={n > available && n !== EXAM_SIZES[0]} onClick={() => setSize(Math.min(n, available))}>
+              {n} سؤال
+            </button>
+          ))}
+        </div>
+        {history.length > 0 && (
+          <p className="hint">
+            آخر امتحان: {history[history.length - 1].right} من {history[history.length - 1].total} ({history[history.length - 1].date})
+          </p>
+        )}
+      </div>
+    );
+
+  if (finishedExam) {
+    const per = scoreByLesson(items, answers);
+    const right = Object.values(per).reduce((a, x) => a + x.right, 0);
+    const revise = lessonsToRevise(per);
+    return (
+      <div className="panel lesson">
+        <Score value={`${right} من ${items.length}`} label="النتيجة" />
+        {revise.length ? <p>{g('راجعي', 'راجع')} الدروس دي:</p> : <p className="ok-text">برافو! كل الدروس فوق ٨٠٪.</p>}
+        <ul className="exam-lessons">
+          {Object.entries(per).map(([id, x]) => {
+            const l = lessonById(id)!;
+            const weak = revise.includes(id);
+            return (
+              <li key={id} className={weak ? 'weak' : 'ok'}>
+                <span>
+                  {l.icon} <Latin text={l.title} />: {x.right} من {x.total}
+                </span>
+                {weak && (
+                  <a className="button-link" href={`#/lessons/${id}`}>
+                    {g('راجعيه', 'راجعه')}
+                  </a>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <div className="row">
+          <button
+            className="big primary"
+            onClick={() => {
+              setSeed((x) => x + 1);
+              setAnswers([]);
+              setQi(0);
+              setFinishedExam(false);
+              setSize(null);
+            }}
+          >
+            امتحان تاني
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const q = items[qi];
+  const chosen = answers[qi];
+  const answered = chosen !== null && chosen !== undefined;
+  const choose = (i: number) => {
+    if (answered) return;
+    const next = [...answers];
+    next[qi] = i;
+    setAnswers(next);
+  };
+  const nextQ = () => {
+    if (qi + 1 < items.length) return setQi(qi + 1);
+    const per = scoreByLesson(items, answers);
+    saveExamRecord({
+      date: today(),
+      ts: Date.now(),
+      right: Object.values(per).reduce((a, x) => a + x.right, 0),
+      total: items.length,
+      lessons: Object.fromEntries(Object.entries(per).map(([id, x]) => [id, [x.right, x.total]])),
+    });
+    setFinishedExam(true);
+  };
+  const listen = async (snd: Sound) => {
+    setBusy(true);
+    await playSound(snd);
+    setBusy(false);
+  };
+  const l = lessonById(q.lesson)!;
+  return (
+    <div className="panel center lesson">
+      <p className="hint">
+        سؤال {qi + 1} من {items.length} · {l.title}
+      </p>
+      <h2>
+        <Latin text={q.q} />
+      </h2>
+      {q.sound && (
+        <button disabled={busy} onClick={() => void listen(q.sound!)}>
+          🔊 اسمعي{busy ? '…' : ''}
+        </button>
+      )}
+      <div className="answers" key={qi}>
+        {q.options.map((o, i) => (
+          <button key={o} className={'big' + (answered && i === q.answer ? ' right' : answered && i === chosen ? ' wrong' : '')} disabled={answered} onClick={() => choose(i)}>
+            <span>
+              {answered && i === q.answer ? '✔ ' : answered && i === chosen ? '✘ ' : ''}
+              <Latin text={o} />
+            </span>
+          </button>
+        ))}
+      </div>
+      {answered && (
+        <div className="lesson-box lesson-why">
+          <p className={chosen === q.answer ? 'ok-text' : ''}>{chosen === q.answer ? '✔ صح!' : '✘ مش دي.'}</p>
+          <p>
+            <Latin text={q.why} />
+          </p>
+        </div>
+      )}
+      {answered && (
+        <button className="big primary" onClick={nextQ}>
+          {qi + 1 < items.length ? 'السؤال اللي بعده ←' : 'النتيجة ←'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** #/lessons, #/lessons/exam, #/lessons/glossary[/<term>], #/lessons/summaries, #/lessons/<id>[/resume] */
 export function LessonsPage() {
   const [, id, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
   const lesson = id ? lessonById(id) : undefined;
   const [done, setDone] = useState(getLessonsDone);
   if (id === 'glossary') return <Glossary focus={sub} />;
+  if (id === 'exam')
+    return (
+      <Page tips title="📝 امتحان شامل" intro="أسئلة عشوائية من كل الدروس اللي خلصت.">
+        <ExamView />
+        <SoundPicker />
+      </Page>
+    );
   if (id === 'summaries')
     return (
       <Page tips title="📝 كل الملخصات" intro="خلاصة كل درس في مكان واحد، للمراجعة السريعة.">
@@ -531,6 +698,9 @@ export function LessonsPage() {
         </a>
       )}
       <div className="row lesson-links">
+        <a className="button-link" href="#/lessons/exam">
+          📝 امتحان شامل
+        </a>
         <a className="button-link" href="#/lessons/glossary">
           📖 قاموس المصطلحات
         </a>
@@ -557,17 +727,13 @@ export function LessonsPage() {
 }
 
 const CONTENTS = -1;
-const CHUNK_DONE = -2;
 
-/**
- * One lesson: contents, sections, summary, then the quiz. Embedded in the beginner path too, where `chunk` limits it to
- * today's part (about 3 minutes of reading, or the quiz once everything's been read).
- */
-export function LessonView({ lesson, onPassed, chunk, onChunkDone, resume }: { lesson: Lesson; onPassed?: () => void; chunk?: Reading; onChunkDone?: () => void; resume?: boolean }) {
+/** One lesson: contents, sections, summary, then the lesson's exam. (Lessons are their own habit, never part of the daily workout.) */
+export function LessonView({ lesson, onPassed, resume }: { lesson: Lesson; onPassed?: () => void; resume?: boolean }) {
   const total = lesson.sections.length;
   const QUIZ = total + 1;
   const [progress, setProgress] = useState(getLessonProgress);
-  const [screen, setScreen] = useState(() => (chunk ? (chunk.quiz ? QUIZ : chunk.from) : resume ? (resumeSection(getLessonProgress(), lesson) ?? CONTENTS) : CONTENTS));
+  const [screen, setScreen] = useState(() => (resume ? (resumeSection(getLessonProgress(), lesson) ?? CONTENTS) : CONTENTS));
   const [seed, setSeed] = useState(() => Date.now() % 100000);
   const quiz = useMemo(() => drawQuiz(lesson.pool, seed), [lesson, seed]);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
@@ -601,26 +767,6 @@ export function LessonView({ lesson, onPassed, chunk, onChunkDone, resume }: { l
   };
 
   const body = () => {
-    if (screen === CHUNK_DONE) {
-      const allRead = readCount(progress, lesson.id) >= total;
-      const nextUp = lesson.sections[chunk ? chunk.to + 1 : 0];
-      return (
-        <div className="panel lesson">
-          <p className="ok-text">✔ جزء النهارده خلص.</p>
-          {allRead || !nextUp ? (
-            <>
-              <p>قريتي الدرس كله. في المرة الجاية: الاختبار.</p>
-              <SummaryBox lesson={lesson} />
-            </>
-          ) : (
-            <p>
-              المرة الجاية هنبدأ من: <b>{nextUp.title}</b>
-            </p>
-          )}
-        </div>
-      );
-    }
-
     if (screen === CONTENTS) {
       const last = resumeSection(progress, lesson);
       return (
@@ -649,7 +795,6 @@ export function LessonView({ lesson, onPassed, chunk, onChunkDone, resume }: { l
 
     if (screen < total) {
       const sc = lesson.sections[screen];
-      const endOfChunk = !!chunk && screen === chunk.to;
       return (
         <div className="panel lesson">
           <p className="hint">
@@ -661,19 +806,12 @@ export function LessonView({ lesson, onPassed, chunk, onChunkDone, resume }: { l
           <SectionBody key={screen} section={sc} />
           <SoundPicker />
           <div className="row">
-            {!(chunk && screen === chunk.from) && <button onClick={() => go(screen === 0 ? CONTENTS : screen - 1)}>{screen === 0 ? '→ الفهرس' : '→ رجوع'}</button>}
+            <button onClick={() => go(screen === 0 ? CONTENTS : screen - 1)}>{screen === 0 ? '→ الفهرس' : '→ رجوع'}</button>
             <button
               className="big primary"
-              onClick={() => {
-                const p = markRead(progress, lesson.id, screen);
-                if (endOfChunk) {
-                  update(p);
-                  setScreen(CHUNK_DONE);
-                  onChunkDone?.();
-                } else go(screen + 1, p);
-              }}
+              onClick={() => go(screen + 1, markRead(progress, lesson.id, screen))}
             >
-              {endOfChunk ? 'خلصت جزء النهارده ✔' : 'التالي ←'}
+              التالي ←
             </button>
           </div>
         </div>

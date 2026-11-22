@@ -15,6 +15,8 @@ export const mic = {
   /** getUserMedia fails with this DOMException name */
   deny: null as null | 'NotAllowedError' | 'NotFoundError' | 'NotReadableError',
   streams: [] as FakeMediaStream[],
+  /** what each getUserMedia call asked for */
+  constraints: [] as MediaTrackConstraints[],
   calls: 0,
   reset() {
     this.freq = null;
@@ -23,6 +25,7 @@ export const mic = {
     this.at = null;
     this.deny = null;
     this.streams = [];
+    this.constraints = [];
     this.calls = 0;
   },
   /** sing this MIDI note, optionally off by some cents */
@@ -55,10 +58,12 @@ export const mic = {
 };
 
 export function installFakeMic() {
-  const getUserMedia = async () => {
+  const getUserMedia = async (c?: MediaStreamConstraints) => {
     mic.calls++;
+    mic.constraints.push((c?.audio ?? {}) as MediaTrackConstraints);
     if (mic.deny) throw new DOMException('mic', mic.deny);
     const s = new FakeMediaStream();
+    s.tracks[0].constraints = (c?.audio ?? {}) as MediaTrackConstraints;
     mic.streams.push(s);
     return s as unknown as MediaStream;
   };

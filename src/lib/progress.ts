@@ -4,6 +4,7 @@ import type { Result, ResultType } from './storage';
 
 export const RESULT_INFO: Record<ResultType, { ar: string; unit: string; higherIsBetter: boolean }> = {
   range: { ar: 'المساحة الصوتية', unit: 'نصف تون', higherIsBetter: true },
+  exam: { ar: 'الامتحان الشامل', unit: '%', higherIsBetter: true },
   match: { ar: 'مطابقة النغمة', unit: '%', higherIsBetter: true },
   maqam: { ar: 'المقامات', unit: '%', higherIsBetter: true },
   sustain: { ar: 'طول النفس', unit: 'ثانية', higherIsBetter: true },

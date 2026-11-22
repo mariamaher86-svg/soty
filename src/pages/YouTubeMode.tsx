@@ -11,6 +11,9 @@ import { checkScale, nearestDegree, SCALES, spellScale, tonicName, type ScaleChe
 import { midiToFreq } from '../lib/music';
 import { parseYouTubeId } from '../lib/youtube';
 import { addResult, getPref, setPref } from '../lib/storage';
+import { HeadphonesCheck } from '../components/HeadphonesCheck';
+import { getHeadphoneState, resultsReliable, type HeadphoneState } from '../lib/headphones';
+import { InOptions } from '../components/ui';
 import { CurveLog } from '../lib/curveCap';
 import type { PitchPoint } from '../lib/compare';
 import type { Song } from '../lib/songs';
@@ -25,17 +28,23 @@ const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60
 /** Always-visible reminders for this mode. */
 function Notes() {
   return (
+    <InOptions>
     <div className="notes" role="note">
       <b>تنبيهات مهمة:</b>
       <ul>
-        <li>🎧 البسي سماعات. من غيرها الميكروفون هيسمع الأغنية وقراءة صوتك هتبوظ.</li>
         <li>التطبيق مش بيقدر يسمع صوت اليوتيوب نفسه (المتصفح مش بيدّيه الصوت)، فهو بيشوف بس إنتي فضلتي جوه سلم/مقام الأغنية ولا لأ — <b>مش</b> بيقارنك بلحن المغني نغمة بنغمة.</li>
         <li>عشان مقارنة نغمة بنغمة مع المغني: استخدمي ملف صوت بتاعك (مثلاً MP3 اشتريتيه) في وضع "ملف صوت"، ويفضّل فصل صوت المغني عن الموسيقى الأول ببرنامج فصل صوت.</li>
         <li>تنزيل الصوت من يوتيوب ضد شروط يوتيوب، فالتطبيق مش بيعمل كده.</li>
         <li>🌐 الوضع ده محتاج إنترنت (عكس باقي التطبيق).</li>
       </ul>
     </div>
+    </InOptions>
   );
+}
+
+/** One short line at the top: the most common reason the reading goes wrong. */
+export function HeadphonesNote() {
+  return <p className="headphones-note">🎧 البسي سماعات: من غيرها المايك بيسمع الأغنية نفسها كأنها صوتك.</p>;
 }
 
 export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: { start: number; end: number } | null } = {}) {
@@ -93,6 +102,8 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
   const spelled = spellScale(tonicPc, scale.pcs, scale.flats);
   const degreeName = (pc: number) => spelled.find((n) => n.pc === pc)?.name ?? '';
 
+  const [hp, setHp] = useState<HeadphoneState>(getHeadphoneState);
+  const [micInfo, setMicInfo] = useState<MediaTrackSettings | null>(null);
   const { frame, error, start, stop } = useMic((f) => {
     const p = player.current;
     if (!recording || !p || p.getPlayerState() !== YT_STATE.PLAYING) return;
@@ -103,7 +114,7 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
       lastLive.current = f.t;
       setLive(frames.current.points.filter((x) => x.t >= t - LIVE_SECONDS && x.t <= t + 0.5));
     }
-  });
+  }, undefined, { echoCancel: true });
 
   useEffect(() => setPref('yt.tonic', String(tonicPc)), [tonicPc]);
   useEffect(() => setPref('yt.scale', scaleId), [scaleId]);
@@ -168,6 +179,7 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
     timeMap.current.clear();
     const mic = await start();
     if (!mic || !player.current) return;
+    setMicInfo(mic.settings);
     const chunks: Blob[] = [];
     const rec = new MediaRecorder(mic.stream);
     rec.ondataavailable = (e) => chunks.push(e.data);
@@ -190,7 +202,8 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
     setSung(s);
     const r = checkScale(s, tonicFreq, scale.pcs, TOLERANCE);
     setResult(r);
-    if (s.some((p) => p.freq)) addResult('scale', r.percentInScale, song?.title ?? `${tonicName(tonicPc).name} ${scale.ar}`, { songId: song?.id, moments: r.outRanges });
+    // sung with the music on the speaker: shown, but not saved as if it were reliable
+    if (s.some((p) => p.freq) && resultsReliable(hp)) addResult('scale', r.percentInScale, song?.title ?? `${tonicName(tonicPc).name} ${scale.ar}`, { songId: song?.id, moments: r.outRanges });
   };
   finishRef.current = finish;
 
@@ -213,9 +226,17 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
   return (
     <>
       <Help id="sing-youtube" />
+      <HeadphonesNote />
       <OfflineNote />
       <Notes />
       <ErrorText text={error || err} />
+      {micInfo && (
+        <InOptions>
+          <p className="hint">
+            إلغاء صدى المايك: {micInfo.echoCancellation === true ? 'شغال' : micInfo.echoCancellation === false ? 'الموبايل قفله' : 'الموبايل مش بيقول'}، تقليل الدوشة: {micInfo.noiseSuppression === true ? 'شغال' : micInfo.noiseSuppression === false ? 'مقفول' : 'الموبايل مش بيقول'}.
+          </p>
+        </InOptions>
+      )}
 
       <div className="panel">
         {/* the label holds only the field: a button inside it would be pressed by tapping the label text */}
@@ -293,9 +314,14 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
               </button>
             </>
           ) : (
-            <button className="big primary" disabled={!ready} onClick={begin}>
-              🎤 {ready ? (sung ? 'غني تاني' : 'شغّلي وغني') : 'الفيديو بيحمّل…'}
-            </button>
+            <>
+              <HeadphonesCheck onChange={setHp} />
+              {hp !== null && hp !== 'speaker' && (
+                <button className="big primary" disabled={!ready} onClick={begin}>
+                  🎤 {ready ? (sung ? 'غني تاني' : 'شغّلي وغني') : 'الفيديو بيحمّل…'}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -313,12 +339,14 @@ export function YouTubeMode({ song, pendingLoop }: { song?: Song; pendingLoop?: 
           score={(s) => checkScale(s, tonicFreq, scale.pcs, TOLERANCE).percentInScale}
           label={song?.title ?? `يوتيوب ${tonicName(tonicPc).name} ${scale.ar}`}
           songId={song?.id}
+          save={resultsReliable(hp)}
           onClose={() => setLoopMoment(null)}
         />
       )}
 
       {result && sung && !recording && (
         <div className="panel">
+          {!resultsReliable(hp) && <p className="warn-text not-accurate">مش دقيقة (من غير سماعات) — ومش متحفظة في تقدمك.</p>}
           <div className="stats">
             <Stat label="جوه السلم" value={`${result.percentInScale}%`} />
             <Stat label="لحظات برا السلم" value={result.outRanges.length} />

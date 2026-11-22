@@ -3514,3 +3514,68 @@ button,
 .stats {
   gap: var(--s3);
 }
+
+.home-lesson {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  margin: 0 0 var(--s4);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.exam-lessons {
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.exam-lessons li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+
+.exam-lessons li.weak {
+  border-inline-start: 4px solid var(--warn);
+}
+
+.exam-lessons li.ok {
+  border-inline-start: 4px solid var(--ok);
+}
+
+/* ---- headphones ---- */
+.headphones-note {
+  margin: var(--s2) 0 var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.headphones-check {
+  margin: var(--s3) 0;
+}
+
+.headphones-check.warn {
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r);
+  background: var(--warn-soft);
+  border-inline-start: 4px solid var(--warn);
+}
+
+.headphones-check p {
+  margin: 0 0 var(--s2);
+}

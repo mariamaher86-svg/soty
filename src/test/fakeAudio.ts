@@ -83,10 +83,12 @@ export class FakeNode {
 class FakeScheduledSource extends FakeNode {
   onended: ((e: Event) => void) | null = null;
   started = false;
+  startAt = 0;
   stopAt: number | null = null;
   ended = false;
   start(when = 0) {
     this.started = true;
+    this.startAt = Math.max(when, this.context.currentTime);
     this.context.registerSource(this, when);
   }
   stop(when = 0) {
@@ -167,6 +169,11 @@ class FakeAnalyser extends FakeNode {
   getFloatTimeDomainData(buf: Float32Array) {
     const src = this.micSource();
     if (!src || !src.stream.live) return buf.fill(0);
+    // on the phone's speaker, the mic also hears what the app plays (the headphones check's tone)
+    if (audioControl.speakerLeak) {
+      const tone = this.context.soundingTone();
+      if (tone) return this.fill(buf, tone, 0.05);
+    }
     // a sound that depends on the audio clock (claps on the beat)
     const timed = mic.at?.(this.context.currentTime);
     const { freq, level, noise } = timed ? { freq: timed.freq ?? null, level: timed.level ?? mic.level, noise: !!timed.noise } : mic;
@@ -181,6 +188,9 @@ class FakeAnalyser extends FakeNode {
       return;
     }
     if (!freq || !level) return buf.fill(0);
+    this.fill(buf, freq, level);
+  }
+  private fill(buf: Float32Array, freq: number, level: number) {
     // the same wave for the same note (the phase doesn't matter to a pitch detector): computed once, copied after
     const key = `${freq}|${level}|${buf.length}`;
     let wave = waves.get(key);
@@ -241,11 +251,14 @@ export const audioControl = {
   contexts: [] as FakeAudioContext[],
   /** what any decoded file contains: its length and the note (Hz) at each moment */
   song: { seconds: 1, freqAt: (_t: number): number | null => 220 },
+  /** the phone plays on its speaker: the mic hears the app's own sounds (false = headphones) */
+  speakerLeak: false,
   /** frequencies of the reference notes played (plain tone), in order */
   tones: [] as number[],
   /** every oscillator started: its frequency and audio-clock start time (metronome clicks are 1000/1600 Hz) */
   started: [] as { freq: number; when: number; type: string }[],
   reset() {
+    this.speakerLeak = false;
     this.song = { seconds: 1, freqAt: () => 220 };
     this.tones = [];
     this.started = [];
@@ -329,6 +342,12 @@ export class FakeAudioContext {
       } else next = Math.min(next, s.stopAt);
     }
     if (next < Infinity) this.timer = setTimeout(() => this.wake(), Math.max(1, (next - now) * 1000));
+  }
+  /** the frequency of an oscillator sounding right now, if any */
+  soundingTone(): number | null {
+    const now = this.currentTime;
+    for (const s of this.sources) if (s instanceof FakeOscillator && !s.ended && s.startAt <= now && (s.stopAt === null || s.stopAt > now)) return s.frequency.value;
+    return null;
   }
   /** sources still playing (not ended) */
   get playing(): number {
@@ -427,8 +446,11 @@ export class FakeTrack extends EventTarget {
     this.readyState = 'ended';
     this.dispatchEvent(new Event('ended'));
   }
+  /** what the browser applied: this fake honours what was asked */
+  constraints: MediaTrackConstraints = {};
   getSettings() {
-    return { sampleRate: 44100 };
+    const c = this.constraints;
+    return { sampleRate: 44100, echoCancellation: c.echoCancellation, noiseSuppression: c.noiseSuppression, autoGainControl: c.autoGainControl } as MediaTrackSettings;
   }
 }
 

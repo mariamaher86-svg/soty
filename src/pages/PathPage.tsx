@@ -11,21 +11,17 @@ import { RhythmPage } from './RhythmPage';
 import { IntervalPage } from './IntervalPage';
 import { currentIntervalLevel, INTERVAL_LEVELS } from '../lib/intervalSing';
 import { currentLevel, EAR_LEVELS } from '../lib/ear';
-import { getEarHistory, getIntervalHistory, getResults, getSongs } from '../lib/storage';
+import { getEarHistory, getIntervalHistory, getSongs } from '../lib/storage';
 import { StepNav } from '../components/StepNav';
 import { ActivityBadge, arDigits } from '../components/ActivityBadge';
-import { LessonView } from './LessonsPage';
 import { FindNotePage } from './FindNotePage';
-import { lessonById, LESSONS } from '../content/lessons';
-import { todaysReading, type Reading } from '../lib/lessonProgress';
-import { getLessonDay, getLessonProgress, getLessonsDone, markLessonDay } from '../lib/storage';
 import { earIsReal, intervalsIsReal, rhythmIsReal, matchIsReal, maqamIsReal, MIN_MATCH_TRIES, rangeIsReal, secondsIsReal, stabilityIsReal, warmupIsReal, workoutCounts } from '../lib/stepRules';
 import { getWeeklySong, singSong } from './songNav';
 import { MAQAMAT } from '../lib/maqam';
 import { noteName } from '../lib/music';
 import { defaultRange } from '../lib/voice';
 import { getGender } from '../lib/gender';
-import { getPath, getRange, today, updatePath } from '../lib/storage';
+import { getPath, getRange, today, updatePath, voiceResultDates } from '../lib/storage';
 import {
   compareMeasurements,
   countedWorkouts,
@@ -40,7 +36,6 @@ import {
   todaysMaqam,
   weeklyStatus,
   workoutPlan,
-  isRhythmDay,
   type Feeling,
   type Measurement,
 } from '../lib/path';
@@ -70,7 +65,6 @@ const MEASURE_INFO: Record<MeasureStep, { title: string; how: string }> = {
 
 const WORKOUT_INFO: Record<WorkoutStep, { title: string; how: string }> = {
   findnote: { title: 'إزاي أجيب دو صح؟', how: 'اسمعي النغمة، همهمي «مممم»، واطلعي أو انزلي ببطء لحد ما النقطة تيجي على الخط، واثبتي ثانية.' },
-  lesson: { title: 'درس النهارده', how: 'الجزء الجاي من الدرس، حوالي ٣ دقايق، من المكان اللي وقفتي عنده. ولما الأجزاء تخلص: الاختبار.' },
   warmup: { title: 'الإحماء', how: 'بررر، سيرينة، وهمهمة — بهدوء ومن غير صوت عالي. دوسي "التالي" جوه كل جزء.' },
   intervals: { title: 'غنا الفواصل', how: 'اسمعي النغمة وغني المسافة المطلوبة. لو صعبة دوسي "اسمعي الإجابة".' },
   rhythm: { title: 'الإيقاع', how: 'اسمعي ٤ عدّات وصقّفي على الضربة مازورتين. أول مرة ظبطي التأخير تحت.' },
@@ -82,7 +76,6 @@ const WORKOUT_INFO: Record<WorkoutStep, { title: string; how: string }> = {
 };
 
 const WORKOUT_NEED: Record<WorkoutStep, string> = {
-  lesson: 'لسه جزء النهارده من الدرس مخلصش.',
   findnote: 'لسه محتاجين نلاقي ٣ نغمات على الأقل.',
   warmup: 'لسه محتاجين جزئين على الأقل من الإحماء (بررر، سيرينة، همهمة).',
   hiss: 'لسه محتاجين نسمع السسسس.',
@@ -177,16 +170,13 @@ export function PathPage() {
 
   const lastMeasureDate = data.weekly.length ? data.weekly[data.weekly.length - 1].date : (data.baseline?.date ?? null);
   const status = weeklyStatus(lastMeasureDate, day);
-  const real = countedWorkouts(data.workouts, new Set(getResults().map((x) => x.date)));
+  const real = countedWorkouts(data.workouts, voiceResultDates());
   const workoutsDone = real.length;
   const light = shouldGoLight(real, day);
-  // today's music-basics lesson (frozen when the workout starts, so passing it doesn't shift the steps)
-  const [wLesson, setWLesson] = useState<Reading | null>(null);
-  const [wFind, setWFind] = useState(false);
-  const lessonNow = todaysReading(LESSONS, getLessonsDone(), getLessonProgress(), getLessonDay(), day);
-  const findNow = workoutsDone < 7 && !!getLessonsDone().note; // first week, after "what is a note"
+  // the plan is frozen when the workout starts, so finishing it doesn't shift the steps (voice only: lessons are separate)
+  const [wDone, setWDone] = useState(0);
   const inWorkout = view.kind === 'workout' || view.kind === 'workoutNotCounted';
-  const plan = workoutPlan(light, inWorkout ? !!wLesson : !!lessonNow, inWorkout ? wFind : findNow, isRhythmDay(workoutsDone));
+  const plan = workoutPlan(light, inWorkout ? wDone : workoutsDone);
   const maqamId = todaysMaqam(workoutsDone);
   const maqam = MAQAMAT.find((x) => x.id === maqamId)!;
   const doneToday = real.some((w) => w.date === day);
@@ -233,8 +223,7 @@ export function PathPage() {
   };
 
   const goWorkout = () => {
-    setWLesson(todaysReading(LESSONS, getLessonsDone(), getLessonProgress(), getLessonDay(), day));
-    setWFind(findNow);
+    setWDone(workoutsDone);
     doneSteps.current = 0;
     setCaptured('');
     setStepOk(false);
@@ -398,21 +387,6 @@ export function PathPage() {
           onNext={() => nextWorkout(view.step)}
           onSkip={() => nextWorkout(view.step, true)}
         >
-          {s.step === 'lesson' && wLesson && (
-            <LessonView
-              lesson={lessonById(wLesson.lesson)!}
-              chunk={wLesson}
-              onPassed={() => {
-                setCaptured(`الدرس خلص ✔: ${lessonById(wLesson.lesson)!.title}`);
-                setStepOk(true);
-              }}
-              onChunkDone={() => {
-                markLessonDay(day);
-                setCaptured(`جزء النهارده خلص ✔: ${lessonById(wLesson.lesson)!.title}`);
-                setStepOk(true);
-              }}
-            />
-          )}
           {s.step === 'findnote' && (
             <FindNotePage
               onResult={(n) => {
@@ -645,7 +619,7 @@ export function PathPage() {
 /** Streak and next step, for the home screen card. */
 export function pathSummary(): { streak: number; next: string; started: boolean } {
   const p = usableMeasurements(getPath());
-  const real = countedWorkouts(p.workouts, new Set(getResults().map((x) => x.date)));
+  const real = countedWorkouts(p.workouts, voiceResultDates());
   const day = today();
   const last = p.weekly.length ? p.weekly[p.weekly.length - 1].date : (p.baseline?.date ?? null);
   const status = weeklyStatus(last, day);

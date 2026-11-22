@@ -55,6 +55,8 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart
 
 interface Props {
   source: LoopSource;
+  /** false = sung with the music on the speaker: scores are shown but not saved */
+  save?: boolean;
   /** the moment to loop (an off range), padded automatically */
   moment: { start: number; end: number };
   /** score 0..100 for one repeat */
@@ -71,7 +73,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function LoopPractice({ source, moment, score, reference, guides, label, songId, pad, onScore, onClose }: Props) {
+export function LoopPractice({ source, moment, score, reference, guides, label, songId, pad, onScore, onClose, save: keep = true }: Props) {
   const [w, setW] = useState(() => loopWindow(moment.start, moment.end, source.duration(), pad));
   const onScoreRef = useRef(onScore);
   onScoreRef.current = onScore;
@@ -107,7 +109,7 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
   const save = () => {
     const sc = st.current.scores;
     savePendingResult(null);
-    if (sc.length) addResult('loop', sc[sc.length - 1], `${label}: ${trend(sc.slice(-12)).text}`, { songId });
+    if (sc.length && keep) addResult('loop', sc[sc.length - 1], `${label}: ${trend(sc.slice(-12)).text}`, { songId });
   };
 
   const finish = () => {
@@ -138,7 +140,7 @@ export function LoopPractice({ source, moment, score, reference, guides, label, 
       s.scores = pushCapped(s.scores, value);
       setScores(s.scores);
       onScoreRef.current?.(value);
-      savePendingResult('loop', value, `${label}: ${trend(s.scores.slice(-12)).text}`, { songId }); // survives if the app is killed
+      if (keep) savePendingResult('loop', value, `${label}: ${trend(s.scores.slice(-12)).text}`, { songId }); // survives if the app is killed
       if (s.repeats && s.scores.length >= s.repeats) return finish();
       setP('gap');
       gapTimer.current = window.setTimeout(() => st.current.phase === 'gap' && playRepeat(), GAP_MS);

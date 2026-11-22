@@ -118,6 +118,22 @@ export interface MicFrame {
 export interface Mic {
   stream: MediaStream;
   stop: () => void;
+  /** what the browser really applied (iOS may ignore some of what was asked) */
+  settings: MediaTrackSettings;
+}
+
+export interface MicOptions {
+  /**
+   * Singing along with music from the speaker: ask the browser to cancel the speaker's sound (echo cancellation and
+   * noise suppression). It reduces how much of the song the mic picks up; it doesn't remove it — headphones do.
+   * Off for the exercises, where it would bend her pitch and loudness.
+   */
+  echoCancel?: boolean;
+}
+
+/** The constraints asked for: raw sound for exercises, echo cancellation while music plays. */
+export function micConstraints(o: MicOptions = {}): MediaTrackConstraints {
+  return o.echoCancel ? { echoCancellation: true, noiseSuppression: true, autoGainControl: false } : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
 }
 
 /**
@@ -125,11 +141,15 @@ export interface Mic {
  * Browser processing (echo cancel, noise suppression, auto gain) is turned off because it
  * distorts pitch and loudness.
  */
-export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9, onLost?: () => void): Promise<Mic> {
+export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9, onLost?: () => void, options: MicOptions = {}): Promise<Mic> {
   setAudioSession('play-and-record');
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints(options) });
+  let settings: MediaTrackSettings = {};
+  try {
+    settings = stream.getAudioTracks()[0]?.getSettings?.() ?? {};
+  } catch {
+    // not supported
+  }
   const ac = audioContext();
   const source = ac.createMediaStreamSource(stream);
   const analyser = ac.createAnalyser();
@@ -180,7 +200,7 @@ export async function startMic(onFrame: (f: MicFrame) => void, minClarity = 0.9,
   const unsubHide = lifecycle.onHidden(lost);
   stream.getTracks().forEach((t) => t.addEventListener('ended', lost));
 
-  return { stream, stop };
+  return { stream, stop, settings };
 }
 
 /** Arabic message for a failed getUserMedia call. */
