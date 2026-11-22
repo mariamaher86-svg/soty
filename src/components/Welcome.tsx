@@ -6,6 +6,7 @@ import { getPath, getPref, getRange, getResults, getSongs, setPref } from '../li
 import { GenderButtons } from './GenderChoice';
 import { genderChosen } from '../lib/gender';
 import { isEmptyMeasurement } from '../lib/path';
+import { AppLogo } from './AppLogo';
 
 const KEY = 'welcome.done';
 
@@ -77,7 +78,7 @@ export function Welcome({ onDone }: { onDone: () => void }) {
       <div className="welcome-card">
         {!last ? (
           <>
-            <div className="welcome-icon">{SCREENS[i].icon}</div>
+            <div className="welcome-icon">{i === 0 ? <AppLogo size={88} /> : SCREENS[i].icon}</div>
             <h1>{SCREENS[i].title}</h1>
             {SCREENS[i].lines.map((l) => (
               <p key={l}>{l}</p>

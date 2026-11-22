@@ -37,6 +37,7 @@ import { backOf, TABS, tabOf } from './lib/nav';
 import { genderChosen } from './lib/gender';
 import { useOnline, useUpdateWaiting } from './audio/offline';
 import { browser } from './lib/reload';
+import { AppLogo } from './components/AppLogo';
 
 // To add a page: add a row here and a component in src/pages, and a card on the "التمارين" page (or a row on "المزيد").
 // `desc`/`home` are kept for reference; navigation is the bottom tab bar + the top bar's back button.
@@ -149,7 +150,10 @@ export default function App() {
             {titleOf(back)}
           </a>
         ) : (
-          <span className="logo">صوتي</span>
+          <span className="logo">
+            <AppLogo />
+            صوتي
+          </span>
         )}
         <a className={'icon-btn' + (tab === 'more' ? ' on' : '')} href="#/more" aria-label="المزيد: الإعدادات والبيانات والدليل">
           <Icon name="more" />

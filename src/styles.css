@@ -3579,3 +3579,21 @@ button,
 .headphones-check p {
   margin: 0 0 var(--s2);
 }
+
+/* ---- the app's icon inside the app ---- */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.app-logo {
+  display: block;
+  border-radius: 22%;
+  flex-shrink: 0;
+}
+
+.welcome-icon .app-logo {
+  margin: 0 auto;
+  box-shadow: 0 8px 24px rgba(27, 31, 75, 0.3);
+}
