@@ -3597,3 +3597,164 @@ button,
   margin: 0 auto;
   box-shadow: 0 8px 24px rgba(27, 31, 75, 0.3);
 }
+
+/* =====================================================================================
+   One layout for every popup and sheet (components/Dialog): header, scrolling body, footer in normal flow.
+   The footer is never positioned over the text, and the whole box fits between the safe areas.
+   ===================================================================================== */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--s4) + var(--safe-top)) calc(var(--s3) + var(--safe-right)) calc(var(--s4) + var(--safe-bottom)) calc(var(--s3) + var(--safe-left));
+  background: rgba(10, 8, 20, 0.5);
+  animation: fade-in 0.18s ease;
+}
+
+.dialog-backdrop[hidden] {
+  display: none;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--r-lg);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+}
+
+.dialog-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4) var(--s2);
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog-head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--s3) var(--s4) var(--s4);
+}
+
+.dialog-footer {
+  flex-shrink: 0;
+  padding: var(--s3) var(--s4) var(--s4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dialog-footer .row {
+  margin: 0;
+}
+
+/* nothing inside a dialog sticks: the page's "keep the main button in reach" rules are for pages only */
+.dialog button.big,
+.dialog .row {
+  position: static !important;
+  box-shadow: none;
+}
+
+.dialog-footer button.big {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* the options sheet: the same layout, from the bottom edge */
+.dialog-backdrop.sheet-backdrop {
+  align-items: flex-end;
+  padding: calc(var(--s4) + var(--safe-top)) 0 0;
+}
+
+.dialog.sheet {
+  max-width: 640px;
+  max-height: 100%;
+  padding: 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  overflow: hidden;
+  animation: sheet-up 0.22s ease;
+}
+
+.dialog.sheet .dialog-footer {
+  padding-bottom: calc(var(--s4) + var(--safe-bottom));
+}
+
+/* pages: .app already leaves room for the tab bar and the safe area; this adds the sticky main button's height
+   (56px + its gap), so the last lines can always scroll clear of it */
+main {
+  padding-bottom: 72px;
+}
+
+/* ---- the sign-in gate (first screen) ---- */
+.gate {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--s5) + var(--safe-top)) calc(var(--s4) + var(--safe-right)) calc(var(--s5) + var(--safe-bottom)) calc(var(--s4) + var(--safe-left));
+  background: var(--bg);
+}
+
+.gate-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s6) var(--s5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.gate-card h1 {
+  margin: 0;
+}
+
+.signin-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  text-align: start;
+}
+
+.signin-form form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.signin-form .field input {
+  width: 100%;
+}
+
+.gate .signin-form button.big {
+  position: static;
+  max-width: none;
+  margin: var(--s2) 0 0;
+  box-shadow: none;
+}

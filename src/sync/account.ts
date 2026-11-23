@@ -31,10 +31,27 @@ import { listTeacher, saveTeacher } from '../audio/teacherStore';
 import { getSongFile, listSongFileKeys, saveSongFile } from '../audio/songFiles';
 import { analysisRunning } from '../audio/songAnalysis';
 import { supabaseBackend } from './supabaseBackend';
+import { browser } from '../lib/reload';
 
 export const syncConfig = readConfig(supabaseUrl, supabaseKey);
 export const SYNC_APPLIED_EVENT = 'soty-sync-applied';
 const META_KEY = 'sotysync.meta';
+/** where supabase-js keeps the signed-in session on this device */
+export const AUTH_KEY = 'sotysync.auth';
+
+/**
+ * The user of the session saved on this device, read straight from storage, so the app knows at once (and offline)
+ * that she's signed in. An expired token still counts: supabase-js refreshes it when the internet is back.
+ */
+export function storedUser(): { id: string; email: string } | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null') as { user?: { id?: string; email?: string } } | null;
+    const u = v?.user;
+    return u?.id ? { id: u.id, email: u.email ?? '' } : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface AccountState {
   configured: boolean;
@@ -53,7 +70,7 @@ export interface AccountState {
 
 let state: AccountState = {
   configured: !!syncConfig,
-  user: null,
+  user: syncConfig ? storedUser() : null,
   phase: 'idle',
   reach: null,
   message: '',
@@ -91,9 +108,11 @@ function client(): Promise<SupabaseClient> {
       // The URL is read only on the recovery landing, so normal "#/…" routes are never touched.
       auth: { persistSession: true, autoRefreshToken: true, flowType: 'implicit', detectSessionInUrl: parseAuthHash(window.location.hash)?.kind === 'recovery', storageKey: 'sotysync.auth' },
     });
-    sb.auth.onAuthStateChange((_e, session) => {
+    sb.auth.onAuthStateChange((event, session) => {
       const u = session?.user;
-      set({ user: u ? { id: u.id, email: u.email ?? '' } : null });
+      // only a real sign-out signs her out here; a missing session while offline (a token that couldn't refresh) doesn't
+      if (u) set({ user: { id: u.id, email: u.email ?? '' } });
+      else if (event === 'SIGNED_OUT') set({ user: null });
     });
     return sb;
   });
@@ -167,11 +186,58 @@ export async function saveNewPassword(password: string, confirm: string): Promis
   return e;
 }
 
-export async function signOut() {
-  const sb = await client();
-  await sb.auth.signOut();
-  localStorage.removeItem(META_KEY);
+/** Re-reads the session saved on this device (at start, and after another tab signs in or out). */
+export function restoreStoredSession() {
+  set({ user: syncConfig ? storedUser() : null });
+}
+
+/** Files that live only on this device: they'd be lost by signing out. */
+export async function unsyncedFiles(): Promise<{ songs: string[]; recordings: number }> {
+  const audioOff = getPref('sync.audio') === '0';
+  const storedKeys = await listSongFileKeys().catch(() => [] as string[]);
+  const all = localSongFiles(getSongs(), storedKeys, Infinity);
+  const synced = audioOff ? [] : localSongFiles(getSongs(), storedKeys);
+  const left = all.filter((f) => !synced.some((x) => x.key === f.key));
+  const titles = new Map(getSongs().map((x) => [x.id, x.title]));
+  const songs = [...new Set(left.map((f) => titles.get(songIdOfKey(f.key)) ?? f.key))];
+  const recordings = audioOff ? (await listTeacher().catch(() => [])).length : 0;
+  return { songs, recordings };
+}
+
+/** Everything of hers on this device: the app's storage and the IndexedDB files (recordings, song files, curves). */
+export async function wipeDevice() {
+  for (const k of Object.keys(localStorage)) if (k.startsWith('soty.') || k.startsWith('sotysync.')) localStorage.removeItem(k);
+  try {
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+  await new Promise<void>((resolve) => {
+    const req = indexedDB.deleteDatabase('soty');
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  });
+}
+
+export const SIGN_OUT_SYNC_FAILED = 'مقدرناش نزامن دلوقتي، فما خرجناش عشان محدش يضيع. جربي تاني لما النت يرجع.';
+
+/**
+ * "اخرجي من الحساب": sync first (so the server has everything), then remove her data from this device, so the next
+ * person on this phone sees nothing of hers; signing back in brings it all back. Never wipes if the sync didn't happen.
+ */
+export async function signOut(): Promise<string | null> {
+  const started = Date.now();
+  await syncNow().catch(() => {});
+  if (state.phase === 'error' || !state.lastSync || state.lastSync < started) return SIGN_OUT_SYNC_FAILED;
+  try {
+    const sb = await client();
+    await sb.auth.signOut({ scope: 'local' });
+  } catch {
+    // signing out locally below is enough
+  }
+  await wipeDevice();
   set({ user: null, summary: null, filesBytes: null, message: '' });
+  browser.reload(); // nothing of hers stays in memory either
+  return null;
 }
 
 /** "امسحي بياناتي من السيرفر": rows and files on the server go; this device keeps everything. */
@@ -341,13 +407,17 @@ export function installSync() {
   if (!syncConfig) return;
   void client()
     .then((sb) => sb.auth.getSession())
-    .then(({ data }) => {
+    .then(({ data, error }) => {
       const u = data.session?.user;
-      if (!u) return;
-      set({ user: { id: u.id, email: u.email ?? '' } });
-      scheduler.request();
+      if (u) {
+        set({ user: { id: u.id, email: u.email ?? '' } });
+        scheduler.request();
+      } else if (!error && navigator.onLine) set({ user: null }); // the server says there's no session (offline: keep the saved one)
     })
     .catch(() => {});
+  // the session saved on the device opens the app offline; back online, supabase-js refreshes an expired token
+  window.addEventListener('online', () => void client().then((sb) => sb.auth.getSession()).catch(() => {}));
+  window.addEventListener('storage', (e) => e.key === AUTH_KEY && restoreStoredSession());
   lifecycle.onVisible(() => state.user && scheduler.request());
   window.addEventListener('online', () => state.user && scheduler.online());
   window.addEventListener(LOCAL_CHANGE_EVENT, (e) => {

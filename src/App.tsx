@@ -30,7 +30,8 @@ import { Icon } from './components/Icons';
 import { applyTheme } from './lib/theme';
 import { lifecycle } from './lib/lifecycle';
 import { onSoundFallback } from './audio/sound';
-import { SYNC_APPLIED_EVENT } from './sync/account';
+import { SYNC_APPLIED_EVENT, useAccount } from './sync/account';
+import { NotConfiguredScreen, SignInScreen } from './pages/SignInPage';
 import { AccountPage } from './pages/AccountPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { backOf, TABS, tabOf } from './lib/nav';
@@ -88,6 +89,13 @@ export default function App() {
   // bumped when she comes back to the app while something was playing/listening: the page starts fresh
   const [epoch, setEpoch] = useState(0);
   const [stopped, setStopped] = useState(false);
+  const account = useAccount();
+  // after signing in: the welcome only for someone new (her data may come back from the server a moment later)
+  useEffect(() => {
+    if (!account.user) return;
+    setWelcome(shouldShowWelcome());
+    setAskGender(!genderChosen());
+  }, [account.user?.id]);
 
   // data that arrived from the other device: apply the settings, and show it (unless an exercise is running)
   useEffect(() => {
@@ -96,6 +104,7 @@ export default function App() {
       if (keys.includes('soty.pref.theme')) applyTheme();
       // not during an exercise, and not while she's typing in a form (a remount would lose what she wrote)
       const typing = document.activeElement?.matches('input, textarea, select');
+      setWelcome((w) => w && shouldShowWelcome()); // a new device that just got her data: no welcome
       if (lifecycle.isBusy() || typing) return;
       if (keys.includes('soty.pref.gender')) return browser.reload(); // the wording switches on a fresh page
       setEpoch((x) => x + 1);
@@ -123,6 +132,10 @@ export default function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  // the gate: no page, no welcome, no help without a signed-in account (and no app at all without its settings)
+  if (!account.configured) return <NotConfiguredScreen />;
+  if (!account.user) return <SignInScreen />;
 
   const active = PAGES.find((p) => p.id === page.split('/')[0]);
   const back = backOf(page);

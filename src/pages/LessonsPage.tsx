@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CentsMeter, Page, Score } from '../components/ui';
 import { HoldRing } from '../components/HoldRing';
+import { Dialog } from '../components/Dialog';
 import { PianoKeyboard } from '../components/PianoKeyboard';
 import { SoundPicker } from '../components/SoundPicker';
 import { playNote } from '../audio/sound';
@@ -922,14 +923,15 @@ export function LessonView({ lesson, onPassed, resume }: { lesson: Lesson; onPas
       <div ref={top} className="lesson-anchor" />
       {body()}
       {t && (
-        <div className="modal-backdrop" onClick={() => setTerm(null)}>
-          <div className="modal" role="dialog" aria-label={t.ar} onClick={(e) => e.stopPropagation()}>
-            <h3>
+        <Dialog
+          title={
+            <>
               {t.ar} · <bdi dir="ltr">{t.en}</bdi>
-            </h3>
-            <p>
-              <Latin text={t.def} />
-            </p>
+            </>
+          }
+          label={t.ar}
+          onClose={() => setTerm(null)}
+          footer={
             <div className="row">
               <a className="button-link" href={`#/lessons/glossary/${t.key}`}>
                 📖 القاموس
@@ -938,8 +940,12 @@ export function LessonView({ lesson, onPassed, resume }: { lesson: Lesson; onPas
                 تمام
               </button>
             </div>
-          </div>
-        </div>
+          }
+        >
+          <p>
+            <Latin text={t.def} />
+          </p>
+        </Dialog>
       )}
     </TermContext.Provider>
   );

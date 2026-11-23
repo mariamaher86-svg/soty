@@ -20,7 +20,7 @@ const LINKS = [
 /** A restored backup reloads the page with a message to show: open that section then. */
 function hasBackupNews(): boolean {
   try {
-    return !!sessionStorage.getItem('soty.backup.restored');
+    return !!sessionStorage.getItem('soty.backup.restored') || !!sessionStorage.getItem('soty.backup.open');
   } catch {
     return false;
   }

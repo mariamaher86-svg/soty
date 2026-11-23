@@ -7,6 +7,7 @@ import { today } from '../lib/storage';
 import { BeforeTraining } from './BeforeTraining';
 import { Help } from './Help';
 import { NoiseCheck } from './NoiseCheck';
+import { Dialog } from './Dialog';
 import type { HelpKey } from '../content/help';
 
 /** Inside the beginner path an exercise is shown without its own title (the path gives the instructions). */
@@ -36,12 +37,7 @@ export function Page({ title, intro, tips, mic, help, children }: { title: strin
     setCount((c) => c + 1);
     return () => setCount((c) => c - 1);
   }, []);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
   const slot = useMemo(() => ({ el, register }), [el, register]);
   if (embedded) return <div className="embedded">{children}</div>;
   const hasOptions = tips || mic || count > 0;
@@ -59,26 +55,26 @@ export function Page({ title, intro, tips, mic, help, children }: { title: strin
         </header>
         {intro && <p className="intro">{intro}</p>}
         {children}
-        <div className="sheet-backdrop" hidden={!open} onClick={() => setOpen(false)}>
-          <div className="sheet" role="dialog" aria-modal="true" aria-label="خيارات" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-head">
-              <h2>خيارات</h2>
-              <button className="icon-btn" onClick={() => setOpen(false)} aria-label="قفل الخيارات">
-                ✕
-              </button>
-            </div>
-            {(tips || mic) && (
-              <div className="page-tools">
-                {tips && <BeforeTraining />}
-                {mic && <NoiseCheck />}
-              </div>
-            )}
-            <div className="sheet-body" ref={setEl} />
-            <button className="big primary" onClick={() => setOpen(false)}>
+        <Dialog
+          sheet
+          hidden={!open}
+          title="خيارات"
+          closeLabel="قفل الخيارات"
+          onClose={close}
+          footer={
+            <button className="big primary" onClick={close}>
               تمام
             </button>
-          </div>
-        </div>
+          }
+        >
+          {(tips || mic) && (
+            <div className="page-tools">
+              {tips && <BeforeTraining />}
+              {mic && <NoiseCheck />}
+            </div>
+          )}
+          <div className="sheet-body" ref={setEl} />
+        </Dialog>
       </section>
     </OptionsSlot.Provider>
   );

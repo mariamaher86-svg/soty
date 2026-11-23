@@ -1,6 +1,7 @@
 // "❓ كيفية الاستخدام": a button on every feature page that opens its how-to in a popup (✕, the backdrop or Esc closes it).
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Dialog } from './Dialog';
 import { HELP, type HelpEntry, type HelpKey } from '../content/help';
 
 /** The help body (also used by the guide page). */
@@ -41,32 +42,25 @@ export function HelpBody({ e }: { e: HelpEntry }) {
 export function Help({ id }: { id: HelpKey }) {
   const [open, setOpen] = useState(false);
   const e = HELP[id];
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
   return (
     <>
       <button className="icon-btn help-toggle" onClick={() => setOpen(true)} aria-label="كيفية الاستخدام">
         ❓
       </button>
       {open && (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-label={`شرح ${e.title}`} onClick={(ev) => ev.stopPropagation()}>
-            <div className="modal-head">
-              <h2>{e.title}</h2>
-              <button className="icon-btn" onClick={() => setOpen(false)} aria-label="قفل الشرح">
-                ✕
-              </button>
-            </div>
-            <HelpBody e={e} />
+        <Dialog
+          title={e.title}
+          label={`شرح ${e.title}`}
+          closeLabel="قفل الشرح"
+          onClose={() => setOpen(false)}
+          footer={
             <button className="big primary" onClick={() => setOpen(false)}>
               تمام، فهمت
             </button>
-          </div>
-        </div>
+          }
+        >
+          <HelpBody e={e} />
+        </Dialog>
       )}
     </>
   );

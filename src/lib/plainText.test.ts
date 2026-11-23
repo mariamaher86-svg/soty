@@ -9,4 +9,10 @@ describe('plain body text', () => {
     expect(plainText('F♯ و B♭ و ♩ ♪')).toBe('F♯ و B♭ و ♩ ♪');
     expect(plainText('بدون أي حاجة')).toBe('بدون أي حاجة');
   });
+  it('never leaves empty brackets or quotes, or a space before punctuation, behind', () => {
+    expect(plainText('جوه نسخة البيانات (💾) زي باقي النتايج.')).toBe('جوه نسخة البيانات زي باقي النتايج.');
+    expect(plainText('و«❓» فيها الشرح')).toBe('و فيها الشرح');
+    expect(plainText('فيه تحسّن 👏.')).toBe('فيه تحسّن.');
+    expect(plainText('(مثلاً ٨ من ١٠)')).toBe('(مثلاً ٨ من ١٠)');
+  });
 });

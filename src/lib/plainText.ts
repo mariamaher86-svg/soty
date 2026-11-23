@@ -9,7 +9,11 @@ const LABELS = 'button, a, h1, h2, h3, summary, label, [aria-hidden], svg, .tile
 
 export function plainText(s: string): string {
   if (!/\p{Extended_Pictographic}/u.test(s)) return s;
-  return s.replace(EMOJI, (m) => (KEEP.has([...m][0]) ? m : '')).replace(/ {2,}/g, ' ');
+  return s
+    .replace(EMOJI, (m) => (KEEP.has([...m][0]) ? m : ''))
+    .replace(/\s*(\(\s*\)|«\s*»|“\s*”)/g, '') // an emoji that was alone in brackets or quotes
+    .replace(/ {2,}/g, ' ')
+    .replace(/ ([،؛؟!:.])(?=\s|$)/g, '$1');
 }
 
 function fixText(node: Text) {

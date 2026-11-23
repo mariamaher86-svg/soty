@@ -9,6 +9,8 @@ import { installAudioUnlock } from '../audio/audio';
 import { installLifecycle } from '../lib/lifecycle';
 import { setPref } from '../lib/storage';
 import { startPlainText } from '../lib/plainText';
+import { AUTH_KEY, restoreStoredSession } from '../sync/account';
+import { server } from './fakeSupabase';
 import { mic } from './fakeMic';
 import { setVisibility } from './setup';
 
@@ -20,8 +22,25 @@ export function prime({ gender = 'f', welcome = true }: { gender?: 'f' | 'm' | n
   if (gender) setPref('gender', gender);
 }
 
-/** The whole app (top bar, page, tab bar, toasts) at `#/route`, as main.tsx renders it. */
-export function renderApp(route = '', opts: { prime?: boolean } = {}) {
+export const TEST_USER = { id: 'u-test', email: 'maria@test.dev', password: 'password123' };
+
+/** A session saved on this device, as supabase-js leaves it after signing in (the app's gate lets her in). */
+export function signedIn(user = TEST_USER) {
+  if (!server.users.some((u) => u.id === user.id)) server.users.push({ ...user });
+  server.session = { user: { id: user.id, email: user.email } };
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ access_token: 'token', refresh_token: 'refresh', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: user.id, email: user.email } }));
+  restoreStoredSession();
+}
+
+/** No session on this device: the gate shows the sign-in. */
+export function signedOut() {
+  localStorage.removeItem(AUTH_KEY);
+  server.session = null;
+  restoreStoredSession();
+}
+
+/** The whole app (top bar, page, tab bar, toasts) at `#/route`, as main.tsx renders it. Signed in unless `signedIn: false`. */
+export function renderApp(route = '', opts: { prime?: boolean; signedIn?: boolean } = {}) {
   if (!installed) {
     installLifecycle();
     installAudioUnlock();
@@ -29,6 +48,8 @@ export function renderApp(route = '', opts: { prime?: boolean } = {}) {
     installed = true;
   }
   if (opts.prime !== false) prime();
+  if (opts.signedIn === false) signedOut();
+  else signedIn();
   window.location.hash = route ? `#/${route}` : '';
   const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
   const r = render(
