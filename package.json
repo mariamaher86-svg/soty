@@ -12,7 +12,8 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage && node scripts/coverage-by-folder.mjs",
     "fetch-samples": "node scripts/fetch-samples.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "reminders": "node scripts/bundle-reminders.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",

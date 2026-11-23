@@ -168,6 +168,34 @@ git push
 
 *Her steps: supabase.com (GitHub sign-in) → project `soty`, Frankfurt → SQL Editor: run `supabase/schema.sql` → Auth: Email provider on, **Confirm email off**, Site URL + redirect = the GitHub Pages URL → copy Project URL + publishable key into `src/config/supabase.ts` (or set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` at build) → push → in the app: المزيد → حسابي → create account (email + password) → then turn off "Allow new users to sign up" (the repo is public). Forgot password: Supabase's default recovery email (no template edit; the built-in sender only delivers to project members' addresses, at a low hourly limit); the link opens in Safari with its tokens in the URL hash (implicit flow, not PKCE, because a verifier would be in the home-screen app's storage), which `parseAuthHash` catches before the router and shows `RecoveryPage`. Free projects pause after ~1 week idle (Dashboard → Restore).*
 
+## 🔔 التنبيهات (Web Push) / Reminders
+
+ثلاث تنبيهات بتوصل حتى لو التطبيق مقفول: تذكير تمرين النهارده (افتراضي ٧ بالليل)، «لسه ما اتمرنتيش النهارده — متضيعيش الأيام ورا بعض» (افتراضي ٩ بالليل، بس لو عندك يومين ورا بعض أو أكتر ومفيش تمرين النهارده)، و«وقت القياس الأسبوعي» يوم ما يجي ميعاده بدل تذكير التمرين. الدوسة على التنبيه بتفتح التطبيق على تمرين النهارده. على الآيفون محتاجة iOS 16.4 أو أحدث، والتطبيق مفتوح من أيقونته على الشاشة الرئيسية.
+
+إزاي بيشتغل: كل ١٥ دقيقة Supabase بيشغّل الفانكشن `send-reminders` (pg_cron)، وهي بتحسب الساعة كام عندك من المنطقة الزمنية بتاعتك، وتقرر إيه اللي ميعاده (`supabase/functions/send-reminders/decide.ts`، ونفس الملف ده بتتجرب عليه اختبارات التطبيق)، وتبعت مرة واحدة بس لكل يوم. التطبيق بيبعت للسيرفر صف صغير فيه المواعيد والمنطقة الزمنية وآخر تمرين والأيام ورا بعض وميعاد القياس الأسبوعي، وكل واحدة بتشوف صفوفها هي بس.
+
+### خطواتك (مرة واحدة)
+
+**(أ) الـ SQL:** افتحي `supabase/notifications.sql`، وبدّلي `PASTE_CRON_SECRET_HERE` (في كل مكان في الملف) بكلمة سر طويلة عشوائية، هي نفسها اللي هتحطيها في `CRON_SECRET` في خطوة (ج). وبعدين Supabase ← **SQL Editor** ← الصقي الملف كله ← **Run**. (لازم `schema.sql` يكون اتشغّل قبله.)
+
+**(ب) الفانكشن:** Supabase ← **Edge Functions** ← **Deploy a new function** ← اختاري المحرر (Via Editor) ← اسمها `send-reminders` بالظبط ← امسحي الكود اللي فيه والصقي الملف `supabase/functions/send-reminders/paste-in-dashboard.ts` كله ← **Deploy**. بعد كده من إعدادات الفانكشن **اقفلي «Verify JWT»** (المناداة بتيجي من الـ cron بكلمة السر، مش بحساب).
+
+**(ج) الأسرار:** **Edge Functions** ← **Secrets** ← ضيفي الأربعة دول:
+- `VAPID_PUBLIC_KEY` = نفس المفتاح اللي في `src/config/push.ts`
+- `VAPID_PRIVATE_KEY` = المفتاح السري (بيتعمل مرة واحدة ومش بيتحط في GitHub أبدًا)
+- `VAPID_SUBJECT` = `https://mariamaher86-svg.github.io/soty/` (عنوان التطبيق، من غير أي إيميل)
+- `CRON_SECRET` = نفس كلمة السر اللي حطيتيها في الـ SQL
+
+**(د) الإضافات:** لو الـ SQL قال إن `pg_cron` أو `pg_net` مش موجودين: **Database** ← **Extensions** ← شغّلي `pg_cron` و `pg_net`، وشغّلي الـ SQL تاني.
+
+**(هـ) التطبيق:** بيتنشر لوحده لما الكود يترفع على GitHub (Actions).
+
+**(و) على الآيفون:** افتحي صوتي من **الأيقونة** (مش من Safari) ← **المزيد** ← **التنبيهات** ← «فعّلي التنبيهات» ← **Allow / سماح** ← «جربي تنبيه دلوقتي».
+
+لو التنبيهات اتقفلت بالغلط: إعدادات الآيفون ← التنبيهات ← صوتي ← اسمحي بالتنبيهات.
+
+**للمطوّرة:** `npm run reminders` بيعمل `paste-in-dashboard.ts` من `index.ts` و `decide.ts` (اختبار بيتأكد إنه محدّث). مفاتيح VAPID جديدة: `npx web-push generate-vapid-keys` (أو أي مولّد P-256)، والعام في `src/config/push.ts` وفي `VAPID_PUBLIC_KEY` مع بعض. أي مفاتيح أو أسرار محلية مكانها `.secrets/` (متجاهلة في git).
+
 ## التنقل / Navigation
 
 - تحت: ٤ أقسام — **الرئيسية** (تمرين النهارده وتحدي النهارده بس)، **التمارين** (كل التمارين متقسمة)، **أغانيّ**، **التقدّم**.

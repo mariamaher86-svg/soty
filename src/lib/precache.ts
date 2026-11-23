@@ -40,6 +40,38 @@ self.addEventListener('message', (e) => {
   if (e.data === 'skipWaiting') self.skipWaiting();
 });
 
+// reminders (Web Push): the server sends { title, body, url, tag }; tapping opens the app on that page
+self.addEventListener('push', (e) => {
+  let d = {};
+  try {
+    d = e.data ? e.data.json() : {};
+  } catch {
+    d = { body: e.data ? e.data.text() : '' };
+  }
+  const url = new URL(d.url || './', self.registration.scope).href;
+  e.waitUntil(
+    self.registration.showNotification(d.title || 'صوتي', {
+      body: d.body || '',
+      icon: new URL('./icons/icon-192.png', self.registration.scope).href,
+      badge: new URL('./icons/icon-192.png', self.registration.scope).href,
+      tag: d.tag || 'soty',
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || './', self.registration.scope).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => c.url.startsWith(self.registration.scope));
+      if (open) return (open.navigate ? open.navigate(url).catch(() => open) : Promise.resolve(open)).then((c) => (c || open).focus());
+      return self.clients.openWindow(url);
+    }),
+  );
+});
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return; // YouTube etc. go to the network

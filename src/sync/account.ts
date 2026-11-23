@@ -32,6 +32,7 @@ import { getSongFile, listSongFileKeys, saveSongFile } from '../audio/songFiles'
 import { analysisRunning } from '../audio/songAnalysis';
 import { supabaseBackend } from './supabaseBackend';
 import { browser } from '../lib/reload';
+import { removeThisDevice } from './push';
 
 export const syncConfig = readConfig(supabaseUrl, supabaseKey);
 export const SYNC_APPLIED_EVENT = 'soty-sync-applied';
@@ -118,6 +119,9 @@ function client(): Promise<SupabaseClient> {
   });
   return clientP;
 }
+
+/** Her Supabase client (signed in as her: the database rules apply). */
+export const supabaseClient = () => client();
 
 async function reachable(): Promise<Reach> {
   const r = await checkReachable(syncConfig!.url, syncConfig!.key, fetch, navigator.onLine);
@@ -228,6 +232,7 @@ export async function signOut(): Promise<string | null> {
   const started = Date.now();
   await syncNow().catch(() => {});
   if (state.phase === 'error' || !state.lastSync || state.lastSync < started) return SIGN_OUT_SYNC_FAILED;
+  await removeThisDevice(); // her reminders stop coming to this phone
   try {
     const sb = await client();
     await sb.auth.signOut({ scope: 'local' });

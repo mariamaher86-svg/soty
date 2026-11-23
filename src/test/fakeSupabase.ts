@@ -23,6 +23,8 @@ export const server = {
   session: null as Session,
   /** /auth/v1/health answers (false = blocked by the network) */
   reachable: true,
+  /** small tables (push_subscriptions, notification_prefs): rows as the database would keep them, RLS applied */
+  tables: {} as Record<string, Record<string, unknown>[]>,
   calls: [] as string[],
   reset() {
     this.users = [];
@@ -33,6 +35,7 @@ export const server = {
     this.session = null;
     this.reachable = true;
     this.calls = [];
+    this.tables = {};
     authSubs.clear();
   },
   tick() {
@@ -99,8 +102,62 @@ const fakeAuth = {
   },
 };
 
+
+/** The primary key of each small table (what an upsert replaces on). */
+const KEYS: Record<string, string> = { push_subscriptions: 'endpoint', notification_prefs: 'user_id' };
+
+/**
+ * supabase.from(table) for the small tables, with the database rules: a signed-in person only writes rows with her own
+ * user_id (it's filled in from the session, like `default auth.uid()`), and only sees and deletes her own.
+ */
+function fakeFrom(table: string) {
+  const rows = () => (server.tables[table] ??= []);
+  const me = () => server.session?.user.id ?? null;
+  const filters: [string, unknown][] = [];
+  const mine = () => rows().filter((r) => r.user_id === me() && filters.every(([c, v]) => r[c] === v));
+  const q = {
+    eq(col: string, v: unknown) {
+      filters.push([col, v]);
+      return q;
+    },
+    async upsert(input: Record<string, unknown> | Record<string, unknown>[], opts?: { onConflict?: string }) {
+      server.calls.push(`upsert ${table}`);
+      if (server.failNext > 0) {
+        server.failNext--;
+        return { error: { message: 'network' } };
+      }
+      if (!me()) return { error: { message: 'not signed in' } };
+      const key = opts?.onConflict ?? KEYS[table];
+      for (const r of Array.isArray(input) ? input : [input]) {
+        const row: Record<string, unknown> = { user_id: me(), ...r };
+        if (row.user_id !== me()) return { error: { message: 'row-level security' } };
+        const at = rows().findIndex((x) => x[key] === row[key]);
+        if (at >= 0 && rows()[at].user_id !== me()) return { error: { message: 'row-level security' } };
+        if (at >= 0) rows()[at] = { ...rows()[at], ...row };
+        else rows().push(row);
+      }
+      return { error: null };
+    },
+    delete() {
+      server.calls.push(`delete ${table}`);
+      return {
+        eq: async (col: string, v: unknown) => {
+          filters.push([col, v]);
+          const keep = rows().filter((r) => !mine().includes(r));
+          server.tables[table] = keep;
+          return { error: null };
+        },
+      };
+    },
+    select() {
+      return { eq: (col: string, v: unknown) => (filters.push([col, v]), Promise.resolve({ data: mine(), error: null })), then: (f: (x: unknown) => unknown) => Promise.resolve({ data: mine(), error: null }).then(f) };
+    },
+  };
+  return q;
+}
+
 export function createClient() {
-  return { auth: fakeAuth };
+  return { auth: fakeAuth, from: fakeFrom };
 }
 
 /** Her rows and files: the same contract the real backend keeps. */

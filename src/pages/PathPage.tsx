@@ -22,6 +22,7 @@ import { noteName } from '../lib/music';
 import { defaultRange } from '../lib/voice';
 import { getGender } from '../lib/gender';
 import { getPath, getRange, today, updatePath, voiceResultDates } from '../lib/storage';
+import { saveReminderState } from '../sync/push';
 import {
   compareMeasurements,
   countedWorkouts,
@@ -218,6 +219,7 @@ export function PathPage() {
       if (weekly) p.weekly.push(done);
       else p.baseline = done;
     });
+    void saveReminderState(); // the next weekly check date
     refresh();
     setView({ kind: 'measureDone', weekly, m: done });
   };
@@ -238,6 +240,7 @@ export function PathPage() {
     // a workout counts (streak, maqam rotation) only when at least half of its steps were really done
     if (!workoutCounts(doneSteps.current, plan.length)) return setView({ kind: 'workoutNotCounted', done: doneSteps.current, total: plan.length });
     updatePath((p) => p.workouts.push({ date: day, maqam: maqamId, feeling: null, done: doneSteps.current }));
+    void saveReminderState(); // the reminders know today's workout is done
     refresh();
     setView({ kind: 'feeling' });
   };

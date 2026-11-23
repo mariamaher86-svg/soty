@@ -39,6 +39,8 @@ import { genderChosen } from './lib/gender';
 import { useOnline, useUpdateWaiting } from './audio/offline';
 import { browser } from './lib/reload';
 import { AppLogo } from './components/AppLogo';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { refreshPush } from './sync/push';
 
 // To add a page: add a row here and a component in src/pages, and a card on the "التمارين" page (or a row on "المزيد").
 // `desc`/`home` are kept for reference; navigation is the bottom tab bar + the top bar's back button.
@@ -69,6 +71,7 @@ const PAGES = [
   { id: 'game', icon: '🎮', title: 'لعبة الصوت', desc: '', el: GamePage, home: false },
   { id: 'more', icon: '⚙️', title: 'المزيد', desc: '', el: MorePage, home: false },
   { id: 'account', icon: '👤', title: 'حسابي', desc: '', el: AccountPage, home: false },
+  { id: 'notifications', icon: '🔔', title: 'التنبيهات', desc: '', el: NotificationsPage, home: false },
 ];
 
 function titleOf(route: string): string {
@@ -95,6 +98,7 @@ export default function App() {
     if (!account.user) return;
     setWelcome(shouldShowWelcome());
     setAskGender(!genderChosen());
+    void refreshPush(); // the phone may have renewed its reminder subscription
   }, [account.user?.id]);
 
   // data that arrived from the other device: apply the settings, and show it (unless an exercise is running)

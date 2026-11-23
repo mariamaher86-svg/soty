@@ -27,3 +27,6 @@ desktop.ini
 *.log
 npm-debug.log*
 coverage
+
+# keys that must never be committed (VAPID private key, cron secret): paste into Supabase, then delete
+.secrets/

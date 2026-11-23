@@ -12,7 +12,7 @@ const SONGS_KEY = 'soty.songs';
 export const FILE_STATE_KEY = 'soty.pref.sync.files.state';
 
 /** Settings that belong to one device (its mic, its delay, its own choices about data use). */
-export const DEVICE_ONLY = new Set(['soty.pref.noise.rms', 'soty.pref.rhythm.latency', 'soty.pref.tips.hidden', 'soty.pref.sync.audio', 'soty.pref.sync.last', 'soty.pref.pending.result']);
+export const DEVICE_ONLY = new Set(['soty.pref.noise.rms', 'soty.pref.rhythm.latency', 'soty.pref.tips.hidden', 'soty.pref.sync.audio', 'soty.pref.sync.last', 'soty.pref.pending.result', 'soty.pref.push.on']);
 
 export const syncableKey = (k: string) => k.startsWith(APP_KEY_PREFIX) && !DEVICE_ONLY.has(k);
 
