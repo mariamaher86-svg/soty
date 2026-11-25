@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { button, hiss, renderApp, sing, silence, tick } from '../test/app';
 import { mic } from '../test/fakeMic';
-import { addResult, getPath, updatePath } from '../lib/storage';
-import { audioControl } from '../test/fakeAudio';
+import { addResult, getPath, setPref, updatePath } from '../lib/storage';
+import { getCourse } from '../lib/course';
+import { COURSE } from '../content/course';
 import { noteName } from '../lib/music';
 import type { Measurement } from '../lib/path';
 import type { UserEvent } from '@testing-library/user-event';
@@ -119,56 +120,54 @@ describe('beginner path: the first measurement', () => {
 });
 
 describe("beginner path: today's workout", () => {
-  it('voice only, first week: no lesson step; real and skipped steps; counts when half are really done', async () => {
+  it('from her course level (level 1: no review yet); real and skipped steps; a goal reached counts in the course; counted when half are done', async () => {
     updatePath((p) => (p.baseline = baseline('2026-11-14')));
     const { user } = renderApp('path');
+    expect(screen.getByText(/المستوى ١ من ٨/)).toBeTruthy();
     await user.click(button('كمّلي تمرين النهارده'));
     expect(document.querySelector('.lesson')).toBeNull();
     // 1. warm-up skipped
     expect(stepTitle()).toBe('الإحماء');
-    expect(screen.getByText(/الخطوة ١ من ٦/)).toBeTruthy(); // week 1: no intervals
+    expect(screen.getByText(/الخطوة ١ من ٤/)).toBeTruthy(); // warm-up + the 3 exercises of level 1
     await user.click(skip());
-    // 2. hiss, real
+    // 2. breath from the belly: a 9-second ssss reaches the goal (8 s)
+    expect(stepTitle()).toBe('الوقفة والنفس من البطن');
+    expect(screen.getByText(/الهدف: ٨ ثواني أو أكتر/)).toBeTruthy();
     await user.click(button('ابدئي'));
     mic.level = 0.002;
     await silence(8200);
     mic.level = 0.3;
-    await hiss(4000);
+    await hiss(9500);
     await silence(800);
+    expect(screen.getByText(/وصلتي للهدف/)).toBeTruthy();
     await user.click(stepNext());
-    // 3. the note ladder (week 1, no lesson needed): three notes found
-    expect(stepTitle()).toBe('إزاي أجيب دو صح؟');
-    await user.click(button(/ابدئي/));
-    for (let n = 0; n < 3; n++) {
-      await tick(1700);
-      await sing(Math.round(69 + 12 * Math.log2(audioControl.tones.at(-1)! / 440)), 1300);
-      await tick(900);
-    }
-    expect(stepNext().disabled).toBe(false);
-    await user.click(stepNext());
-    // 4. a held note, real (3 of 6 steps: enough to count)
-    expect(stepTitle()).toBe('نغمة مريحة ممدودة');
+    expect(getCourse().passes['l1-breath']).toEqual(['2026-11-15']);
+    // 3. humming: 2.5 s is a real go but not the goal yet
+    expect(stepTitle()).toBe('همهمة على نغمة مريحة');
     await user.click(button('ابدئي'));
     await sing(57, 2500);
     await silence(800);
+    expect(screen.getByText(/الهدف لسه/)).toBeTruthy();
     await user.click(stepNext());
-    // 5–6 skipped
+    expect(getCourse().passes['l1-hum']).toBeUndefined();
+    // 4. skipped
     while (document.querySelector('.step-nav')) await user.click(skip());
     expect(screen.getByText(/حسّيتي بأي وجع/)).toBeTruthy();
     expect(getPath().workouts).toHaveLength(1);
-    expect(getPath().workouts[0].done).toBe(3);
+    expect(getPath().workouts[0].done).toBe(2);
     await user.click(button('لأ'));
     expect(screen.getByText(/برافو! كده تمام/)).toBeTruthy();
     expect(getPath().workouts[0].feeling).toBe('no');
   });
 
-  it('after the first week: pitch matching and intervals open, whatever the lessons; the streak counts these workouts', async () => {
+  it('a later level: 3 exercises from it and one review from an earlier level, never a level she has not reached; the streak counts', async () => {
     updatePath((p) => {
       p.baseline = baseline('2026-11-01');
       p.weekly = [{ ...baseline('2026-11-10') }];
       p.workouts = Array.from({ length: 8 }, (_, i) => ({ date: `2026-11-${String(6 + i).padStart(2, '0')}`, maqam: 'rast', feeling: 'no' as const, done: 5 }));
     });
     for (let i = 0; i < 8; i++) addResult('match', 70, '7/10'); // results on those days make them real
+    setPref('course', JSON.stringify({ passes: {}, placed: { 1: '2026-11-01', 2: '2026-11-05' }, reached: {} }));
     const { user } = renderApp('path');
     expect(document.querySelector('.hint.path-line')!.textContent).toMatch(/أيام ورا بعض/);
     await user.click(button('كمّلي تمرين النهارده'));
@@ -177,8 +176,12 @@ describe("beginner path: today's workout", () => {
       titles.push(stepTitle()!);
       await user.click(skip());
     }
-    expect(titles).toContain('مطابقة النغمة');
-    expect(titles.at(-1)).toBe('غنا الفواصل');
+    const level3 = COURSE[2].exercises.map((e) => e.title);
+    const earlier = [...COURSE[0].exercises, ...COURSE[1].exercises].map((e) => 'مراجعة: ' + e.title);
+    expect(titles[0]).toBe('الإحماء');
+    expect(titles.slice(1, 4).every((t) => level3.includes(t))).toBe(true);
+    expect(earlier).toContain(titles[4]);
+    expect(titles).toHaveLength(5);
     expect(titles).not.toContain('درس النهارده');
   });
 

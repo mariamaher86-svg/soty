@@ -5,6 +5,7 @@
 
 import { APP_KEY_PREFIX, mergeData } from './backup';
 import { mergeSongs, type Song } from './songs';
+import { COURSE_KEY, mergeProgress, parseProgress } from './course';
 
 const DATA_KEY = 'soty.v1';
 const SONGS_KEY = 'soty.songs';
@@ -70,6 +71,8 @@ type FileState = Record<string, { deleted: boolean; at: number }>;
 export function mergeDoc(key: string, a: string, b: string): string | null {
   if (key === DATA_KEY) return JSON.stringify(mergeData(parse(a, { results: [] }), parse(b, { results: [] })));
   if (key === SONGS_KEY) return JSON.stringify(mergeSongs(parse<Song[]>(a, []), parse<Song[]>(b, [])));
+  // voice course: every good day from both devices counts
+  if (key === COURSE_KEY) return JSON.stringify(mergeProgress(parseProgress(a), parseProgress(b)));
   if (key === FILE_STATE_KEY) {
     const out: FileState = { ...parse<FileState>(a, {}) };
     for (const [p, s] of Object.entries(parse<FileState>(b, {}))) if (!out[p] || s.at > out[p].at) out[p] = s;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { canAnswer, canReplay, initialQ, qReducer, type QEvent, type QState } from './questionFlow';
 import { settleWithin } from '../audio/audio';
 
@@ -36,11 +36,19 @@ describe('question flow (ear training / quizzes)', () => {
 
 describe('sounds always settle', () => {
   it('resolves when the sound ends, or after the limit if it never does', async () => {
-    expect(await settleWithin(Promise.resolve('done'), 50)).toBe('done');
-    const never = new Promise<string>(() => {});
-    const t0 = Date.now();
-    expect(await settleWithin(never, 60)).toBeUndefined();
-    expect(Date.now() - t0).toBeLessThan(1000);
-    expect(await settleWithin(Promise.reject(new Error('x')), 50)).toBeUndefined();
+    // fake time: the 60 ms limit is checked exactly, not against a wall clock that a busy machine slows down
+    vi.useFakeTimers();
+    try {
+      expect(await settleWithin(Promise.resolve('done'), 50)).toBe('done');
+      let settled = false;
+      const never = settleWithin(new Promise<string>(() => {}), 60).then((v) => ((settled = true), v));
+      await vi.advanceTimersByTimeAsync(59);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await never).toBeUndefined();
+      expect(await settleWithin(Promise.reject(new Error('x')), 50)).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

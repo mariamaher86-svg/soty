@@ -27,6 +27,11 @@ export const VIDEOS = {
   'vocalise-staccato': { title: 'ستاكاتو "ها ها ها"', ar: 'تمرين ستاكاتو ها ها لدعم النفس', en: 'staccato ha ha vocal exercise diaphragm' },
   'vocalise-nee': { title: '"ني ني ني"', ar: 'تمرين ني ني ني للصوت', en: 'nee nee nee vocal exercise' },
   'vocalise-octave': { title: 'زحلقة أوكتاف "وو"', ar: 'تمرين زحلقة الأوكتاف للصوت', en: 'octave slide vocal exercise' },
+  melisma: { title: 'الزخارف والرَّن', ar: 'تمارين الآهات والعُرب في الغناء', en: 'melisma vocal runs exercise beginner' },
+  ornaments: { title: 'الزخارف العربي', ar: 'تعلم الزخارف والعُرب في الغناء العربي', en: 'arabic singing ornaments tutorial' },
+  posture: { title: 'وقفة الغنا', ar: 'وضعية الجسم الصحيحة للغناء', en: 'singing posture for beginners' },
+  passaggio: { title: 'صوت الصدر وصوت الراس', ar: 'الفرق بين صوت الصدر وصوت الرأس في الغناء', en: 'chest voice head voice passaggio exercise' },
+  dynamics: { title: 'العالي والواطي', ar: 'تمرين التحكم في علو الصوت للغناء', en: 'messa di voce exercise singing dynamics' },
   cooldown: { title: 'تهدئة الصوت', ar: 'تمارين تهدئة الصوت بعد الغناء', en: 'vocal cool down exercises' },
 } satisfies Record<string, VideoQuery>;
 

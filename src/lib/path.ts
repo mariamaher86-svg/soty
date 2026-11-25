@@ -88,40 +88,7 @@ export function shiftDay(day: string, by: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Voice workouts before intervals open: the first week of real practice. */
-export const FIRST_WEEK = 7;
-
-export type WorkoutStep = 'findnote' | 'warmup' | 'hiss' | 'match' | 'sustain' | 'maqam' | 'ear' | 'intervals' | 'rhythm';
-
-/**
- * Steps of today's workout (minutes are suggestions): voice only, never lessons. Warm-up first, ears and intervals last;
- * a lighter plan after a tired day. Gated by her voice practice alone: for her first FIRST_WEEK counted workouts the
- * guided note ladder replaces pitch matching and there's no interval singing; after that intervals open, alternating
- * with rhythm.
- */
-export function workoutPlan(light: boolean, workoutsDone = FIRST_WEEK): { step: WorkoutStep; minutes: number }[] {
-  const base: { step: WorkoutStep; minutes: number }[] = light
-    ? [
-        { step: 'warmup', minutes: 2 },
-        { step: 'match', minutes: 2 },
-        { step: 'ear', minutes: 2 },
-      ]
-    : [
-        { step: 'warmup', minutes: 3 },
-        { step: 'hiss', minutes: 1 },
-        { step: 'match', minutes: 2 },
-        { step: 'sustain', minutes: 1 },
-        { step: 'maqam', minutes: 2 },
-        { step: 'ear', minutes: 2 },
-        { step: 'intervals', minutes: 2 },
-      ];
-  if (workoutsDone < FIRST_WEEK) return base.filter((s) => s.step !== 'intervals').map((s) => (s.step === 'match' ? { step: 'findnote', minutes: s.minutes } : s));
-  if (isRhythmDay(workoutsDone)) return base.map((s) => (s.step === 'intervals' ? { step: 'rhythm', minutes: 2 } : s));
-  return base;
-}
-
-/** After the first week: rhythm days alternate with interval days. */
-export const isRhythmDay = (workoutsDone: number) => workoutsDone % 2 === 1;
+// Today's workout itself comes from her voice-course level: courseWorkout in lib/course.ts.
 
 /** Lighter plan if the last workout (yesterday or today) felt a bit tiring. */
 export function shouldGoLight(logs: WorkoutLog[], today: string): boolean {

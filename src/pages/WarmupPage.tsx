@@ -82,7 +82,7 @@ export function WarmupPage({ light, onDone }: { light?: boolean; onDone?: (parts
 }
 
 /** 1. Lip trill "brrr": a timer and live loudness (no pitch judging — a trill's pitch is unreliable). */
-function Trill({ seconds, onNext }: { seconds: number; onNext: (real: boolean) => void }) {
+export function Trill({ seconds, onNext, onResult }: { seconds: number; onNext?: (real: boolean) => void; onResult?: (soundingSeconds: number) => void }) {
   const frames = useRef<{ t: number; rms: number }[]>([]);
   const t0 = useRef(0);
   const [left, setLeft] = useState(seconds);
@@ -97,6 +97,7 @@ function Trill({ seconds, onNext }: { seconds: number; onNext: (real: boolean) =
     if (l <= 0) {
       stop();
       setRunning(false);
+      onResult?.(Math.round(soundingSeconds(frames.current, noiseThreshold(frames.current.map((x) => x.rms), savedNoise()))));
     }
   });
   const begin = async () => {
@@ -130,6 +131,7 @@ function Trill({ seconds, onNext }: { seconds: number; onNext: (real: boolean) =
           </button>
         </>
       )}
+      {onNext && (
       <StepNav nextLabel="الجزء اللي بعده ←" skipLabel="تخطي الجزء"
         ok={trillIsReal(sounding)}
         need="لسه محتاجين نسمع البررر ٥ ثواني على الأقل."
@@ -142,12 +144,13 @@ function Trill({ seconds, onNext }: { seconds: number; onNext: (real: boolean) =
           onNext(false);
         }}
       />
+      )}
     </div>
   );
 }
 
 /** 2. Siren: follow a gliding line; her pitch (moved to the line's octave) is drawn on top. */
-function Siren({ seconds, mid, wide, onNext }: { seconds: number; mid: { low: number; high: number }; wide: { low: number; high: number }; onNext: (avgCents: number | null | undefined) => void }) {
+export function Siren({ seconds, mid, wide, onNext, onResult }: { seconds: number; mid: { low: number; high: number }; wide: { low: number; high: number }; onNext?: (avgCents: number | null | undefined) => void; onResult?: (r: { avgCents: number | null; voicedShare: number; seconds: number }) => void }) {
   const sung = useRef<PitchPoint[]>([]);
   const t0 = useRef(0);
   const [now, setNow] = useState(0);
@@ -158,7 +161,9 @@ function Siren({ seconds, mid, wide, onNext }: { seconds: number; mid: { low: nu
   const finish = () => {
     stop();
     setRunning(false);
-    setResult({ ...sirenFollow(sung.current, target), seconds: sung.current.length ? sung.current[sung.current.length - 1].t : 0 });
+    const r = { ...sirenFollow(sung.current, target), seconds: sung.current.length ? sung.current[sung.current.length - 1].t : 0 };
+    setResult(r);
+    onResult?.(r);
   };
 
   const { frame, error, start, stop } = useMic((f) => {
@@ -237,6 +242,7 @@ function Siren({ seconds, mid, wide, onNext }: { seconds: number; mid: { low: nu
           </button>
         </>
       )}
+      {onNext && (
       <StepNav nextLabel="الجزء اللي بعده ←" skipLabel="تخطي الجزء"
         ok={!!result && sirenIsReal(result.voicedShare, result.seconds)}
         need="لسه محتاجين نسمع صوتك مع الخط ١٠ ثواني على الأقل."
@@ -249,6 +255,7 @@ function Siren({ seconds, mid, wide, onNext }: { seconds: number; mid: { low: nu
           onNext(undefined);
         }}
       />
+      )}
     </div>
   );
 }

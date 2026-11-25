@@ -4,6 +4,7 @@ import { pathSummary } from './PathPage';
 import { lessonById, todaysLesson } from '../content/lessons';
 import { readCount } from '../lib/lessonProgress';
 import { getLessonProgress, getLessonsDone, today } from '../lib/storage';
+import { courseLine, getCourse } from '../lib/course';
 
 const TILES = [
   { href: '#/lessons', icon: '🎓', title: 'الدروس' },
@@ -41,6 +42,9 @@ export function HomePage({ askGender, onGenderDone }: { askGender: boolean; onGe
           </p>
         </>
       )}
+      <a className="home-lesson" href="#/course">
+        {courseLine(getCourse())}
+      </a>
       {lesson && (
         <a className="home-lesson" href={lessonHref}>
           درس النهارده (اختياري): {lesson.title}

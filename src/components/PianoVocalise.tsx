@@ -29,6 +29,7 @@ import {
   type PatternSource,
   type RoundScore,
   type TempoId,
+  vocaliseById,
 } from '../lib/pianoVocalise';
 import { addResult, getPref, setPref } from '../lib/storage';
 
@@ -37,13 +38,19 @@ type Phase = 'idle' | 'listen' | 'ref' | 'sing' | 'result';
 const nameOf = (midi: number) => (Number.isInteger(midi) ? `${keyLabel(midi, 'solfege').main} ${noteName(midi)}` : `${quarterToneName(midi).ar} ${quarterToneName(midi).name}`);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoom: boolean; range: { low: number; high: number; fromTest: boolean } }) {
-  const [kind, setKind] = useState<'vocalise' | 'maqam'>(() => (getPref('pv.kind') === 'maqam' ? 'maqam' : 'vocalise'));
-  const [vocId, setVocId] = useState(() => getPref('pv.vocalise') ?? 'five');
-  const [maqamId, setMaqamId] = useState(() => getPref('pv.maqam') ?? 'rast');
-  const [tempo, setTempo] = useState<TempoId>(() => (getPref('pv.tempo') as TempoId) || 'medium');
-  const [climb, setClimb] = useState(() => getPref('pv.climb') === '1');
-  const [start, setStart] = useState(() => defaultStart(range.low));
+/** A fixed exercise (the voice course): no pattern/tempo choice, and it climbs by itself. */
+export interface PianoVocalisePreset {
+  src: PatternSource;
+  tempo: TempoId;
+}
+
+export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }: { labels: LabelStyle; zoom: boolean; range: { low: number; high: number; fromTest: boolean }; preset?: PianoVocalisePreset; startAt?: number; onRound?: (score: RoundScore) => void }) {
+  const [kind, setKind] = useState<'vocalise' | 'maqam'>(() => (preset ? preset.src.kind : getPref('pv.kind') === 'maqam' ? 'maqam' : 'vocalise'));
+  const [vocId, setVocId] = useState(() => (preset?.src.kind === 'vocalise' ? preset.src.id : (getPref('pv.vocalise') ?? 'five')));
+  const [maqamId, setMaqamId] = useState(() => (preset?.src.kind === 'maqam' ? preset.src.maqam.id : (getPref('pv.maqam') ?? 'rast')));
+  const [tempo, setTempo] = useState<TempoId>(() => preset?.tempo ?? ((getPref('pv.tempo') as TempoId) || 'medium'));
+  const [climb, setClimb] = useState(() => !!preset || getPref('pv.climb') === '1');
+  const [start, setStart] = useState(() => startAt ?? defaultStart(range.low));
   const [phase, setPhase] = useState<Phase>('idle');
   const [playIndex, setPlayIndex] = useState(-1);
   const [follow, setFollow] = useState<FollowState>(startFollow);
@@ -56,7 +63,7 @@ export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoo
   const steps = patternSteps(src, start);
   const top = patternTop(steps, start);
   const factor = TEMPOS.find((t) => t.id === tempo)!.factor;
-  const label = kind === 'maqam' ? `مقام ${MAQAMAT.find((m) => m.id === maqamId)!.ar}` : VOCALISES.find((v) => v.id === vocId)!.ar;
+  const label = kind === 'maqam' ? `مقام ${MAQAMAT.find((m) => m.id === maqamId)!.ar}` : vocaliseById(vocId)!.ar;
 
   const go = (p: Phase) => {
     run.current.phase = p;
@@ -136,6 +143,7 @@ export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoo
     setScore(sc);
     const offText = sc.off.map((o) => `${noteName(Math.round(steps[o.index].midi))} ${offWords(o.cents)}`).join('، ');
     addResult('piano-vocalise', sc.percent, `${label} من ${noteName(start)} — ${sc.ok}/${sc.total}${offText ? ` (✘ ${offText})` : ''}`);
+    onRound?.(sc);
     if (!climb) return;
     const n = nextClimb(start, top, range.low, range.high, r.dir, sc.percent);
     r.dir = n.dir;
@@ -278,6 +286,11 @@ export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoo
         )}
       </div>
 
+      {preset ? (
+        <p className="hint">
+          البداية: <b dir="auto">{nameOf(start)}</b> — بعد كل مرة حلوة (٨٠٪ أو أكتر) بتطلع نص تون لوحدها، وبعدين تنزل.
+        </p>
+      ) : (
       <div className="panel">
         <div className="page-head">
           <h2>🎶 فوكاليز على البيانو</h2>
@@ -363,6 +376,8 @@ export function PianoVocalise({ labels, zoom, range }: { labels: LabelStyle; zoo
           </label>
         </Options>
       </div>
+      )}
+      {preset && outsideTop && <p className="warn-text">آخر نغمة ({nameOf(start + top)}) فوق المنطقة المريحة — غنّيها بهدوء أو دوسي «⬇ نص تون».</p>}
     </>
   );
 }

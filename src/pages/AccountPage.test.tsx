@@ -3,7 +3,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
 import { button, go, renderApp, signedOut, tick, TEST_USER } from '../test/app';
 import { server } from '../test/fakeSupabase';
 import { addResult, getResults, getSongs, saveSongs, setPref } from '../lib/storage';
@@ -14,6 +13,7 @@ import { BLOCKED_MSG, OFFLINE_MSG } from '../lib/auth';
 import { browser } from '../lib/reload';
 import { normalizeSong } from '../lib/songs';
 import { listSongFiles, saveSongFile } from '../audio/songFiles';
+import { advance } from '../test/generation';
 
 const email = () => screen.getByLabelText('إيميلك') as HTMLInputElement;
 const password = () => screen.getAllByLabelText(/باسورد|الباسورد/)[0] as HTMLInputElement;
@@ -268,7 +268,7 @@ describe('password recovery page', () => {
     signedOut();
     server.users.push({ id: 'u1', email: 'maria@test.dev', password: 'oldpassword1' });
     server.session = { user: { id: 'u1', email: 'maria@test.dev' } };
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     render(<RecoveryPage landing={{ kind: 'recovery' }} />);
     await tick(100);
     await user.type(screen.getByLabelText(/الباسورد الجديد/), 'newpassword1');
@@ -282,7 +282,7 @@ describe('password recovery page', () => {
   });
 
   it('an expired link explains and offers to open the app', async () => {
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     render(<RecoveryPage landing={{ kind: 'error', message: 'اللينك ده خلص' }} />);
     expect(screen.getByText('اللينك ده خلص')).toBeTruthy();
     await user.click(button('افتحي التطبيق'));

@@ -6,6 +6,11 @@ import { browser } from '../lib/reload';
 import { addResult, getPref } from '../lib/storage';
 import { HELP } from '../content/help';
 
+/** Every page a help entry points to. */
+const HELP_ROUTES = [...new Set(Object.values(HELP).map((h) => h.href?.replace('#/', '')).filter((r): r is string => !!r))];
+/** Pages the guide links to: every help page, the ones its "start here" text names, and its own contents. */
+const GUIDE_ROUTES = [...new Set([...HELP_ROUTES, 'lessons', 'path', 'songs', 'range', 'guide'])];
+
 describe('exercises page', () => {
   it('a few big groups; each opens a short list whose cards open their exercise', async () => {
     const { user } = renderApp('exercises');
@@ -62,33 +67,28 @@ describe('badges and the daily challenge', () => {
 });
 
 describe('guide and help popups', () => {
-  it('the guide opens, and every link in it goes to a real page', async () => {
+  // one test per page (not one test visiting every page): each stays small and a failure names its page
+  it('the guide opens, and links only to pages that are checked below', async () => {
     renderApp('guide');
     const hrefs = [...document.querySelectorAll('main a')].map((a) => a.getAttribute('href')!).filter((h) => h.startsWith('#/'));
     expect(hrefs.length).toBeGreaterThan(3);
-    for (const h of hrefs) {
-      await go(h.replace('#/', ''));
-      expect(document.querySelector('.crash-screen'), h).toBeNull();
-    }
+    expect(hrefs.map((h) => h.replace('#/', '')).filter((r) => !GUIDE_ROUTES.includes(r))).toEqual([]);
   });
 
-  it('every page’s "❓" opens its explanation and closes again', async () => {
-    const { user } = renderApp('');
-    const routes = Object.values(HELP)
-      .map((h) => h.href?.replace('#/', ''))
-      .filter((r): r is string => !!r);
-    let opened = 0;
-    for (const r of [...new Set(routes)]) {
-      await go(r);
-      const toggle = document.querySelector('main .help-toggle') as HTMLElement | null;
-      if (!toggle) continue;
-      await user.click(toggle);
-      const dialog = screen.getByRole('dialog');
-      expect(within(dialog).getAllByRole('heading').length).toBeGreaterThan(0);
-      await user.click(within(dialog).getByRole('button', { name: 'قفل الشرح' }));
-      expect(screen.queryByRole('dialog')).toBeNull();
-      opened++;
-    }
-    expect(opened).toBeGreaterThan(15);
+  it.each(GUIDE_ROUTES)('the guide link #/%s opens a real page', async (r) => {
+    renderApp(r);
+    await tick(20);
+    expect(document.querySelector('main')).toBeTruthy();
+    expect(document.querySelector('.crash-screen')).toBeNull();
+  });
+
+  it.each(HELP_ROUTES)('the "❓" on #/%s opens its explanation and closes again', async (r) => {
+    const { user } = renderApp(r);
+    await tick(20);
+    await user.click(document.querySelector('main .help-toggle') as HTMLElement);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getAllByRole('heading').length).toBeGreaterThan(0);
+    await user.click(within(dialog).getByRole('button', { name: 'قفل الشرح' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

@@ -1,5 +1,7 @@
 // Navigation: the four bottom tabs, which tab a page belongs to, and where the top bar's back button goes.
 
+import { levelOf } from './course';
+
 /** Bottom tabs, right to left: الرئيسية / التمارين / أغانيّ / التقدّم. */
 export const TABS = [
   { id: '', ar: 'الرئيسية', icon: 'home' },
@@ -9,7 +11,7 @@ export const TABS = [
 ] as const;
 
 /** Where each page belongs: its tab (highlighted) and where "back" goes. Pages not listed are exercises. */
-const PARENT: Record<string, string> = { path: '', more: '', badges: 'more', guide: 'more', teacher: 'more', account: 'more', notifications: 'more' };
+const PARENT: Record<string, string> = { path: '', course: '', more: '', badges: 'more', guide: 'more', teacher: 'more', account: 'more', notifications: 'more' };
 
 /** The tab a route belongs to ('more' = none). */
 export function tabOf(route: string): string {
@@ -23,8 +25,19 @@ export function tabOf(route: string): string {
 export function backOf(route: string): string | null {
   const parts = route.split('/').filter(Boolean);
   if (!parts.length) return null;
+  if (parts[0] === 'course' && parts.length > 1) return courseBack(parts);
   if (parts.length > 1) return parts[0] === 'songs' && parts.length > 2 ? `songs/${parts[1]}` : parts[0] === 'path' ? 'path' : parts[0];
   if (TABS.some((t) => t.id === parts[0])) return null;
   return parts[0] in PARENT ? PARENT[parts[0]] : 'exercises';
 }
 
+
+/** Inside the voice course: an exercise or the placement check goes back to its level, a level to the course. */
+function courseBack(parts: string[]): string {
+  if (parts[1] === 'ex' && parts[2]) {
+    const l = levelOf(decodeURIComponent(parts[2]));
+    return l ? `course/${l.n}` : 'course';
+  }
+  if (parts[1] === 'exam' && parts[2]) return `course/${parts[2]}`;
+  return 'course';
+}

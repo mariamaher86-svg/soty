@@ -1,5 +1,6 @@
 // Backup file: everything the app keeps on this device, in one JSON file (export / import between devices).
 
+import { COURSE_KEY, mergeProgress, parseProgress } from './course';
 import type { Result, SavedRange, PathData } from './storage';
 import type { Measurement, WorkoutLog } from './path';
 import { mergeSongs, type Song } from './songs';
@@ -225,6 +226,9 @@ export function planStorage(current: Record<string, string>, backup: Backup, mod
   }
   if (current[SONGS_KEY] !== undefined || backup.storage[SONGS_KEY] !== undefined) {
     set[SONGS_KEY] = JSON.stringify(mergeSongs(parseSongs(current[SONGS_KEY]), parseSongs(backup.storage[SONGS_KEY])));
+  }
+  if (current[COURSE_KEY] !== undefined && backup.storage[COURSE_KEY] !== undefined) {
+    set[COURSE_KEY] = JSON.stringify(mergeProgress(parseProgress(current[COURSE_KEY]), parseProgress(backup.storage[COURSE_KEY])));
   }
   return { set, remove: [] };
 }

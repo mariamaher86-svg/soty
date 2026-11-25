@@ -3,22 +3,16 @@ import { g } from '../lib/gender';
 import { EmbeddedContext, Page } from '../components/ui';
 import { RangePage } from './RangePage';
 import { MatchPage, type MatchStats } from './MatchPage';
-import { MaqamPage } from './MaqamPage';
 import { Hiss, Stability, Sustain } from './BreathPage';
 import { WarmupPage } from './WarmupPage';
-import { EarPage } from './EarPage';
-import { RhythmPage } from './RhythmPage';
-import { IntervalPage } from './IntervalPage';
-import { currentIntervalLevel, INTERVAL_LEVELS } from '../lib/intervalSing';
-import { currentLevel, EAR_LEVELS } from '../lib/ear';
-import { getEarHistory, getIntervalHistory, getSongs } from '../lib/storage';
+import { getSongs } from '../lib/storage';
 import { StepNav } from '../components/StepNav';
 import { ActivityBadge, arDigits } from '../components/ActivityBadge';
-import { FindNotePage } from './FindNotePage';
-import { earIsReal, intervalsIsReal, rhythmIsReal, matchIsReal, maqamIsReal, MIN_MATCH_TRIES, rangeIsReal, secondsIsReal, stabilityIsReal, warmupIsReal, workoutCounts } from '../lib/stepRules';
+import { matchIsReal, MIN_MATCH_TRIES, rangeIsReal, secondsIsReal, stabilityIsReal, warmupIsReal, workoutCounts } from '../lib/stepRules';
 import { getWeeklySong, singSong } from './songNav';
-import { MAQAMAT } from '../lib/maqam';
 import { noteName } from '../lib/music';
+import { CourseRunner } from '../components/CourseRunner';
+import { courseLine, courseWorkout, exerciseById, getCourse, goalText, meetsGoal, recordPass, type CoursePlanItem } from '../lib/course';
 import { defaultRange } from '../lib/voice';
 import { getGender } from '../lib/gender';
 import { getPath, getRange, today, updatePath, voiceResultDates } from '../lib/storage';
@@ -31,18 +25,15 @@ import {
   usableMeasurements,
   daysBetween,
   middleRange,
-  middleTonic,
   shouldGoLight,
   streak,
   todaysMaqam,
   weeklyStatus,
-  workoutPlan,
   type Feeling,
   type Measurement,
 } from '../lib/path';
 
 type MeasureStep = 'range' | 'match' | 'sustain' | 'stability' | 'hiss';
-type WorkoutStep = ReturnType<typeof workoutPlan>[number]['step'];
 
 type View =
   | { kind: 'home' }
@@ -64,29 +55,12 @@ const MEASURE_INFO: Record<MeasureStep, { title: string; how: string }> = {
   hiss: { title: 'تمرين سسسس', how: 'اتبعي الدايرة: شهيق، كتم، وبعدين "سسسس" طويلة وهادية.' },
 };
 
-const WORKOUT_INFO: Record<WorkoutStep, { title: string; how: string }> = {
-  findnote: { title: 'إزاي أجيب دو صح؟', how: 'اسمعي النغمة، همهمي «مممم»، واطلعي أو انزلي ببطء لحد ما النقطة تيجي على الخط، واثبتي ثانية.' },
-  warmup: { title: 'الإحماء', how: 'بررر، سيرينة، وهمهمة — بهدوء ومن غير صوت عالي. دوسي "التالي" جوه كل جزء.' },
-  intervals: { title: 'غنا الفواصل', how: 'اسمعي النغمة وغني المسافة المطلوبة. لو صعبة دوسي "اسمعي الإجابة".' },
-  rhythm: { title: 'الإيقاع', how: 'اسمعي ٤ عدّات وصقّفي على الضربة مازورتين. أول مرة ظبطي التأخير تحت.' },
-  ear: { title: 'تدريب الودن', how: 'سماع بس. جاوبي على كام سؤال في مستواكي، وارتاحي بصوتك.' },
-  hiss: { title: 'تسخين النفس — سسسس', how: 'كرري التمرين ٣–٤ مرات. كتافك نازلة ومرتاحة، والنفس من بطنك.' },
-  match: { title: 'مطابقة النغمة', how: 'نغمات من نص صوتك بالظبط. خدي وقتك، اسمعي الأول وبعدين غني بهدوء.' },
-  sustain: { title: 'نغمة مريحة ممدودة', how: 'امدّي النغمة دي بصوت هادي وثابت، مش لازم عالي. كرري ٣ مرات وارتاحي بينهم.' },
-  maqam: { title: 'مقام النهارده — على مهلك', how: 'صعود بس وعلى مهلك. اسمعي كل درجة كويس قبل ما تغنيها.' },
-};
+const WARMUP_INFO = { title: 'الإحماء', how: 'بررر، سيرينة، وهمهمة — بهدوء ومن غير صوت عالي. دوسي "التالي" جوه كل جزء.' };
+const WARMUP_NEED = 'لسه محتاجين جزئين على الأقل من الإحماء (بررر، سيرينة، همهمة).';
+const COURSE_NEED = 'لسه محتاجين نسمعك في التمرين ده مرة واحدة على الأقل.';
 
-const WORKOUT_NEED: Record<WorkoutStep, string> = {
-  findnote: 'لسه محتاجين نلاقي ٣ نغمات على الأقل.',
-  warmup: 'لسه محتاجين جزئين على الأقل من الإحماء (بررر، سيرينة، همهمة).',
-  hiss: 'لسه محتاجين نسمع السسسس.',
-  match: 'لسه محتاجين ٣ محاولات على الأقل وانتي بتغني.',
-  sustain: 'لسه محتاجين نسمع نغمة ممدودة ثانية على الأقل.',
-  maqam: 'لسه محتاجين تغني درجة واحدة على الأقل من المقام.',
-  ear: 'لسه محتاجين إجابة على ٣ أسئلة على الأقل.',
-  intervals: 'لسه محتاجين مسافة واحدة صح أو ٥ محاولات.',
-  rhythm: 'لسه محتاجين جولة تصقيف واحدة نسمع فيها تصقيف على الضربة.',
-};
+/** A step's title in today's workout: the warm-up, or a course exercise ("مراجعة" = from an earlier level). */
+const stepTitle = (s: CoursePlanItem) => (s.step === 'warmup' ? WARMUP_INFO.title : `${s.review ? 'مراجعة: ' : ''}${exerciseById(s.id)!.title}`);
 
 const FEELINGS: { id: Feeling; ar: string }[] = [
   { id: 'no', ar: 'لأ' },
@@ -174,19 +148,17 @@ export function PathPage() {
   const real = countedWorkouts(data.workouts, voiceResultDates());
   const workoutsDone = real.length;
   const light = shouldGoLight(real, day);
-  // the plan is frozen when the workout starts, so finishing it doesn't shift the steps (voice only: lessons are separate)
-  const [wDone, setWDone] = useState(0);
+  // today's workout comes from her course level; it's frozen when it starts, so passing an exercise doesn't shift the steps
+  const [frozen, setFrozen] = useState<CoursePlanItem[] | null>(null);
   const inWorkout = view.kind === 'workout' || view.kind === 'workoutNotCounted';
-  const plan = workoutPlan(light, inWorkout ? wDone : workoutsDone);
+  const plan = inWorkout && frozen ? frozen : courseWorkout(getCourse(), light, workoutsDone);
   const maqamId = todaysMaqam(workoutsDone);
-  const maqam = MAQAMAT.find((x) => x.id === maqamId)!;
   const doneToday = real.some((w) => w.date === day);
   const lastLog = real[real.length - 1];
   const restWarning = lastLog?.feeling === 'yes' && daysBetween(lastLog.date, day) <= 2;
 
   const range = getRange() ?? defaultRange(getGender());
   const mid = middleRange(range.low, range.high);
-  const sustainNote = Math.round((mid.low + mid.high) / 2);
 
   const refresh = () => setData(usableMeasurements(getPath()));
 
@@ -225,7 +197,7 @@ export function PathPage() {
   };
 
   const goWorkout = () => {
-    setWDone(workoutsDone);
+    setFrozen(courseWorkout(getCourse(), light, workoutsDone));
     doneSteps.current = 0;
     setCaptured('');
     setStepOk(false);
@@ -371,33 +343,25 @@ export function PathPage() {
     );
   }
 
-  // ---- today's workout
+  // ---- today's workout: the warm-up, then exercises from her course level (and one review)
   if (view.kind === 'workout') {
     const s = plan[view.step];
-    const info = WORKOUT_INFO[s.step];
+    const ex = s.step === 'course' ? exerciseById(s.id)! : null;
     return (
       <Page tips mic help="path" title="تمرين النهارده">
         <StepFrame
           key={view.step}
           n={view.step + 1}
           total={plan.length}
-          title={s.step === 'maqam' ? `${info.title}: ${maqam.ar}` : info.title}
-          how={info.how}
+          title={stepTitle(s)}
+          how={ex ? `${ex.what} 🎯 الهدف: ${goalText(ex.goal)}` : WARMUP_INFO.how}
           minutes={s.minutes}
           result={captured}
           ok={stepOk}
-          need={WORKOUT_NEED[s.step]}
+          need={ex ? COURSE_NEED : WARMUP_NEED}
           onNext={() => nextWorkout(view.step)}
           onSkip={() => nextWorkout(view.step, true)}
         >
-          {s.step === 'findnote' && (
-            <FindNotePage
-              onResult={(n) => {
-                setCaptured(`لقيتي ${n} نغمات ✔`);
-                setStepOk(n >= 3);
-              }}
-            />
-          )}
           {s.step === 'warmup' && (
             <WarmupPage
               light={light}
@@ -407,66 +371,15 @@ export function PathPage() {
               }}
             />
           )}
-          {s.step === 'ear' && (
-            <EarPage
-              level={currentLevel(getEarHistory())}
-              onResult={(r, t) => {
-                setCaptured(`${r}/${t} صح — ${EAR_LEVELS.find((l) => l.id === currentLevel(getEarHistory()))!.ar}`);
-                setStepOk(earIsReal(t));
-              }}
-            />
-          )}
-          {s.step === 'intervals' && (
-            <IntervalPage
-              level={currentIntervalLevel(getIntervalHistory())}
-              onResult={(r, t) => {
-                setCaptured(`${r}/${t} صح — المستوى ${INTERVAL_LEVELS[currentIntervalLevel(getIntervalHistory())].n}`);
-                setStepOk(intervalsIsReal(r, t));
-              }}
-            />
-          )}
-          {s.step === 'rhythm' && (
-            <RhythmPage
-              onResult={(v) => {
-                setCaptured(`الإيقاع: ${v}%`);
-                setStepOk(rhythmIsReal(v));
-              }}
-            />
-          )}
-          {s.step === 'hiss' && (
-            <Hiss
-              onResult={(v) => {
-                setCaptured(`سسسس ${v} ثانية ✔`);
-                setStepOk(secondsIsReal(v));
-              }}
-            />
-          )}
-          {s.step === 'match' && (
-            <MatchPage
-              range={mid}
-              onResult={(r) => {
-                setCaptured(`${r.hits}/${r.tries} صح`);
-                setStepOk(matchIsReal(r.tries, r.avgCents, MIN_MATCH_TRIES.workout));
-              }}
-            />
-          )}
-          {s.step === 'sustain' && (
-            <Sustain
-              note={sustainNote}
-              onResult={(v) => {
-                setCaptured(`${v} ثانية ✔`);
-                setStepOk(secondsIsReal(v));
-              }}
-            />
-          )}
-          {s.step === 'maqam' && (
-            <MaqamPage
-              maqamId={maqamId}
-              tonic={middleTonic(range.low, range.high)}
-              slow
-              onResult={(p) => {
-                setCaptured(`${p}% من الدرجات ✔`);
-                setStepOk(maqamIsReal(p));
+          {ex && (
+            <CourseRunner
+              ex={ex}
+              onMeasure={(m, real) => {
+                if (!real) return;
+                const met = meetsGoal(ex.goal, m);
+                if (met) recordPass(ex.id); // counts in the course too
+                setCaptured(met ? '🎯 وصلتي للهدف ✔' : 'اتسجل ✔ — الهدف لسه، كملي بهدوء');
+                setStepOk(true);
               }}
             />
           )}
@@ -549,8 +462,11 @@ export function PathPage() {
   return (
     <Page tips help="path" title="مسار المبتدئ" intro="تمرين صغير كل يوم، وقياس كل أسبوع.">
       <p className="hint path-line">
-        {days} {days === 1 ? 'يوم' : 'أيام'} ورا بعض · {workoutsDone} تمرين خلص · مقام النهارده: {maqam.ar}
+        {days} {days === 1 ? 'يوم' : 'أيام'} ورا بعض · {workoutsDone} تمرين خلص
       </p>
+      <a className="home-lesson" href="#/course">
+        {courseLine(getCourse())}
+      </a>
 
       {restWarning && (
         <div className="error">
@@ -581,7 +497,7 @@ export function PathPage() {
           <div className="panel center">
             <h2>{doneToday ? 'خلّصتي تمرين النهارده ✔' : 'تمرين النهارده'}</h2>
             <p className="hint">
-              {plan.map((p) => WORKOUT_INFO[p.step].title.split(' —')[0].split(':')[0]).join(' ← ')} · حوالي {minutesAr(plan.reduce((a, p) => a + p.minutes, 0))}
+              {plan.map(stepTitle).join(' ← ')} · حوالي {minutesAr(plan.reduce((a, p) => a + p.minutes, 0))}
             </p>
             <p className="hint">
               النغمات من نص صوتك: <span dir="ltr">{noteName(mid.low)}–{noteName(mid.high)}</span>

@@ -3,7 +3,7 @@ import { GLOSSARY_TERMS, LESSONS, quizPassed, scoreQuiz, soundOffsets, termByKey
 import { drawQuiz } from '../lib/lessonProgress';
 import { buildScale, maqamChart } from '../lib/theory';
 import { MAQAMAT } from '../lib/maqam';
-import { workoutPlan } from '../lib/path';
+import { courseWorkout, emptyProgress } from '../lib/course';
 import appSource from '../App.tsx?raw';
 
 describe('lessons content', () => {
@@ -84,6 +84,6 @@ describe('beginner path: one lesson a day', () => {
     expect(todaysLesson(all, '2026-10-20')).toBeNull();
   });
   it('lessons are never part of the daily workout', () => {
-    for (let done = 0; done < 20; done++) for (const light of [false, true]) expect(workoutPlan(light, done).map((s) => s.step as string)).not.toContain('lesson');
+    for (let done = 0; done < 20; done++) for (const light of [false, true]) expect(courseWorkout(emptyProgress(), light, done).map((s) => s.step as string)).toEqual(expect.not.arrayContaining(['lesson']));
   });
 });

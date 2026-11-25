@@ -3,7 +3,7 @@
 // can climb a semitone at a time inside her range and come back down.
 
 import type { Maqam } from './maqam';
-import { VOCALISES, type Vocalise } from './vocalise';
+import { COURSE_PATTERNS, VOCALISES, type Vocalise } from './vocalise';
 
 export const STEP_TOLERANCE = 25; // cents
 export const HOLD_MS = 400;
@@ -34,7 +34,7 @@ export const TEMPOS = [
 ] as const;
 export type TempoId = (typeof TEMPOS)[number]['id'];
 
-export const vocaliseById = (id: string): Vocalise | undefined => VOCALISES.find((v) => v.id === id);
+export const vocaliseById = (id: string): Vocalise | undefined => VOCALISES.find((v) => v.id === id) ?? COURSE_PATTERNS.find((v) => v.id === id);
 
 /** The notes to sing from `start`: a vocalise pattern, or a maqam scale up its octave and back down (quarter tones kept). */
 export function patternSteps(src: PatternSource, start: number): Step[] {

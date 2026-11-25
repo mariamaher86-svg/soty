@@ -4,6 +4,7 @@ import { Page } from '../components/ui';
 import { clearAll, getResults, type ResultType } from '../lib/storage';
 import { dailyBest, RESULT_INFO } from '../lib/progress';
 import { WeeklyLines } from '../components/WeeklyLines';
+import { CourseLine } from '../components/CourseLine';
 
 const DAYS_SHOWN = 14;
 
@@ -20,6 +21,7 @@ export function ProgressPage() {
 
   return (
     <Page help="progress" title="التقدم" intro="أحسن نتيجة كل يوم، آخر أسبوعين.">
+      <CourseLine />
       <WeeklyLines />
       {!types.length && <p className="hint">لسه مفيش نتايج. ابدئي أي تمرين وهتلاقي تقدمك هنا.</p>}
       {types.map((type) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareMeasure, compareMeasurements, daysBetween, middleRange, middleTonic, shouldGoLight, streak, todaysMaqam, weeklyStatus, workoutPlan, FIRST_WEEK, type Measurement } from './path';
+import { compareMeasure, compareMeasurements, daysBetween, middleRange, middleTonic, shouldGoLight, streak, todaysMaqam, weeklyStatus, type Measurement } from './path';
 
 describe("today's maqam", () => {
   it('starts with easy maqamat and rotates daily', () => {
@@ -56,18 +56,7 @@ describe('middle of the range', () => {
   });
 });
 
-describe('workout plan', () => {
-  it('normal day ≈ 13 minutes: warm-up first, a maqam, ears then intervals last; light day shorter without maqam/intervals', () => {
-    const sum = (p: { minutes: number }[]) => p.reduce((a, s) => a + s.minutes, 0);
-    expect(sum(workoutPlan(false, 8))).toBe(13);
-    expect(workoutPlan(false, 8).map((s) => s.step)).toEqual(['warmup', 'hiss', 'match', 'sustain', 'maqam', 'ear', 'intervals']);
-    expect(workoutPlan(true).some((s) => s.step === 'intervals')).toBe(false);
-    expect(workoutPlan(true)[0].step).toBe('warmup');
-    expect(workoutPlan(false, 8).map((s) => s.step)).toEqual(['warmup', 'hiss', 'match', 'sustain', 'maqam', 'ear', 'intervals']);
-    expect(workoutPlan(false, 9).map((s) => s.step)).toEqual(['warmup', 'hiss', 'match', 'sustain', 'maqam', 'ear', 'rhythm']); // every other day
-    expect(sum(workoutPlan(true))).toBeLessThan(7);
-    expect(workoutPlan(true).some((s) => s.step === 'maqam')).toBe(false);
-  });
+describe('light days', () => {
   it('goes light the day after feeling a bit tired', () => {
     expect(shouldGoLight([{ date: '2026-10-19', maqam: 'ajam', feeling: 'little' }], '2026-10-20')).toBe(true);
     expect(shouldGoLight([{ date: '2026-10-19', maqam: 'ajam', feeling: 'no' }], '2026-10-20')).toBe(false);
@@ -97,24 +86,5 @@ describe('comparison messages', () => {
     const r = compareMeasurements(a, b);
     expect(r).toHaveLength(5);
     expect(r[0].ar).toBe('المساحة الصوتية زادت من 15 لـ 17 نصف تون 👏');
-  });
-});
-
-describe('first week of voice practice (no lessons needed)', () => {
-  it('the note ladder replaces pitch matching and intervals wait, for the first 7 counted workouts', () => {
-    for (let done = 0; done < FIRST_WEEK; done++) {
-      const p = workoutPlan(false, done).map((s) => s.step);
-      expect(p, String(done)).toContain('findnote');
-      expect(p).not.toContain('match');
-      expect(p).not.toContain('intervals');
-      expect(p).not.toContain('rhythm');
-      expect(p[0]).toBe('warmup');
-    }
-    expect(workoutPlan(true, 0).map((s) => s.step)).toEqual(['warmup', 'findnote', 'ear']);
-  });
-  it('from the 8th workout intervals open (alternating with rhythm), whatever the lessons', () => {
-    expect(workoutPlan(false, FIRST_WEEK).map((s) => s.step)).toContain('match');
-    expect(workoutPlan(false, FIRST_WEEK).map((s) => s.step).at(-1)).toBe('rhythm'); // 7 is odd: a rhythm day
-    expect(workoutPlan(false, FIRST_WEEK + 1).map((s) => s.step).at(-1)).toBe('intervals');
   });
 });

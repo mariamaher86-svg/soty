@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { contextAction, installLifecycle, Lifecycle, lifecycle } from './lifecycle';
 
 describe('what to do with the AudioContext on a tap', () => {
@@ -114,6 +114,11 @@ class FakeContext {
 }
 
 describe('the AudioContext comes back after the app was in the background', () => {
+  // The tests re-import the audio module fresh (resetModules). Loading it the first time (transforming pitchy and
+  // the app modules) took ~1 s alone and 5 s+ on a busy machine, inside the first test's time limit; load it once here.
+  beforeAll(async () => {
+    await import('../audio/audio');
+  }, 60000);
   beforeEach(() => {
     vi.useFakeTimers();
     FakeContext.made = [];

@@ -10,6 +10,7 @@ import { registerOffline } from './audio/offline';
 import { playNote } from './audio/sound';
 import { SYNC_APPLIED_EVENT } from './sync/account';
 import { lifecycle } from './lib/lifecycle';
+import { advance } from './test/generation';
 
 describe('app shell', () => {
   it('home renders with the tab bar and opens every tab without crashing', async () => {
@@ -196,7 +197,7 @@ describe('error screen and crash report', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     let fail = true;
     const Maybe = () => (fail ? <Boom /> : <p>ok now</p>);
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     render(
       <ErrorBoundary>
         <Maybe />
@@ -213,7 +214,7 @@ describe('error screen and crash report', () => {
 
   it('the whole-app screen reloads instead', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     render(
       <ErrorBoundary whole>
         <Boom />
@@ -226,7 +227,7 @@ describe('error screen and crash report', () => {
   it('errors from timers and promises go to the log, and the report can be copied or cleared', async () => {
     installErrorLog();
     window.dispatchEvent(new ErrorEvent('error', { message: 'late failure' }));
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     // after setup(): user-event installs its own clipboard
     const writeText = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
@@ -241,7 +242,7 @@ describe('error screen and crash report', () => {
 
   it('without a clipboard the report is shown to copy by hand', async () => {
     window.dispatchEvent(new ErrorEvent('error', { message: 'x' }));
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => Promise.reject(new Error('no')) } });
     render(<ErrorReport />);
     await user.click(button(/انسخي التقرير/));

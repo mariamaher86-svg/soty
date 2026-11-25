@@ -12,6 +12,7 @@ import { storageControl } from './storage';
 import { installFakeMedia, media } from './fakeMedia';
 import { installFakeSpeech, speech } from './fakeSpeech';
 import { browser } from '../lib/reload';
+import { nextTest, settleLeftovers } from './generation';
 
 // No test can reach her real Supabase project: the config and the client library are replaced.
 vi.mock('../config/supabase', () => ({ SUPABASE_URL: 'https://fake.supabase.test', SUPABASE_ANON_KEY: 'sb_publishable_fake_key_for_tests_only', supabaseUrl: 'https://fake.supabase.test', supabaseKey: 'sb_publishable_fake_key_for_tests_only' }));
@@ -97,6 +98,8 @@ globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
 }) as typeof fetch;
 
 beforeEach(async () => {
+  nextTest(); // a test that timed out can no longer act (see generation.ts)…
+  await settleLeftovers(); // …and its last wait has closed before this test renders anything
   // an empty IndexedDB: the app's open connection closes itself on versionchange, so the delete goes through
   await new Promise<void>((resolve) => {
     const req = indexedDB.deleteDatabase('soty');
@@ -121,6 +124,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  nextTest(); // if this test timed out, its leftover waits stop now (see generation.ts)
   cleanup();
   vi.useRealTimers();
 });

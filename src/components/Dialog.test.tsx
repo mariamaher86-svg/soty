@@ -6,6 +6,10 @@ import { Dialog } from './Dialog';
 import { button, renderApp, tick } from '../test/app';
 import { HELP } from '../content/help';
 
+/** Every page a help entry points to. */
+const HELP_ROUTES = [...new Set(Object.values(HELP).map((h) => h.href?.replace('#/', '')).filter((x): x is string => !!x))];
+import { advance } from '../test/generation';
+
 function parts(dialog: HTMLElement) {
   const body = dialog.querySelector(':scope > .dialog-body') as HTMLElement;
   const footer = dialog.querySelector(':scope > .dialog-footer') as HTMLElement | null;
@@ -29,7 +33,7 @@ describe('shared dialog', () => {
 
   it('✕, the backdrop and Esc close it; a click inside does not', async () => {
     const onClose = vi.fn();
-    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+    const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
     render(
       <Dialog title="عنوان" closeLabel="قفل" onClose={onClose}>
         <p>جوه</p>
@@ -43,27 +47,21 @@ describe('shared dialog', () => {
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 
-  it('every help popup and the options sheet use it: their buttons sit in the footer, not over the text', async () => {
-    const { user } = renderApp('');
-    let checked = 0;
-    for (const r of [...new Set(Object.values(HELP).map((h) => h.href?.replace('#/', '')).filter((x): x is string => !!x))]) {
-      window.location.hash = '#/' + r;
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
-      await tick(20);
-      const toggle = document.querySelector('main .help-toggle') as HTMLElement | null;
-      if (!toggle) continue;
-      await user.click(toggle);
-      const dialog = screen.getByRole('dialog');
-      const { body, footer } = parts(dialog);
-      expect(footer, r).toBeTruthy();
-      expect(body.contains(footer), r).toBe(false);
-      expect(footer!.querySelector('button.big')?.textContent, r).toBe('تمام، فهمت');
-      await user.click(button('تمام، فهمت'));
-      checked++;
-    }
-    expect(checked).toBeGreaterThan(15);
-    window.location.hash = '#/match';
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  // one test per page (not one test visiting every page): each stays small and a failure names its page
+  it.each(HELP_ROUTES)('the help popup on #/%s uses it: its buttons sit in the footer, not over the text', async (r) => {
+    const { user } = renderApp(r);
+    await tick(20);
+    await user.click(document.querySelector('main .help-toggle') as HTMLElement);
+    const dialog = screen.getByRole('dialog');
+    const { body, footer } = parts(dialog);
+    expect(footer).toBeTruthy();
+    expect(body.contains(footer)).toBe(false);
+    expect(footer!.querySelector('button.big')?.textContent).toBe('تمام، فهمت');
+    await user.click(button('تمام، فهمت'));
+  });
+
+  it('the options sheet uses it too', async () => {
+    const { user } = renderApp('match');
     await tick(20);
     await user.click(button('خيارات'));
     const sheet = screen.getByRole('dialog', { name: 'خيارات' });

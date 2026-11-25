@@ -26,6 +26,20 @@ export const VOCALISES: Vocalise[] = [
   { id: 'octave', ar: 'زحلقة أوكتاف "وو"', what: 'بيوصل بين الصوت الواطي والعالي بنعومة.', video: 'vocalise-octave', degrees: [0, 12, 0], syllables: rep('وو', 3), dur: 0.9 },
 ];
 
+/**
+ * More patterns used by the voice course only (not listed on the vocalise pages). Degrees may be quarter tones (.5).
+ * YouTube searches for them live in content/videos.ts.
+ */
+export const COURSE_PATTERNS: Vocalise[] = [
+  { id: 'scale8', ar: 'سلم أوكتاف كامل "آه"', what: 'جملة طويلة على نفس واحد: طالعة ٨ نغمات ونازلة.', video: 'doremi', degrees: [0, 2, 4, 5, 7, 9, 11, 12, 11, 9, 7, 5, 4, 2, 0], syllables: rep('آه', 15), dur: 0.45 },
+  { id: 'jumps', ar: 'نطّات "يا"', what: 'تنطي من القرار لنغمة بعيدة وترجعي.', video: 'intervals', degrees: [0, 4, 0, 7, 0], syllables: rep('يا', 5), dur: 0.6 },
+  { id: 'echo', ar: 'جملة قصيرة "لا"', what: 'جملة صغيرة تسمعيها مرة وتغنيها زيها.', video: 'matchPitch', degrees: [0, 4, 2, 5, 4, 2, 0], syllables: rep('لا', 7), dur: 0.5 },
+  { id: 'melisma', ar: 'زخرفة "آه" (رَن)', what: 'نغمات كتير ورا بعض على حرف واحد، زي الآهات في الأغاني.', video: 'melisma', degrees: [0, 2, 4, 2, 4, 5, 4, 2, 0], syllables: rep('آه', 9), dur: 0.35 },
+  { id: 'rast-phrase', ar: 'جملة راست', what: 'جملة قصيرة فيها التالتة ربع تون بتاعة راست.', video: 'maqam', degrees: [0, 2, 3.5, 5, 3.5, 2, 0], syllables: rep('آه', 7), dur: 0.55 },
+  { id: 'turn', ar: 'دوران حوالين النغمة', what: 'زخرفة عربي: فوق النغمة وتحتها وترجعي لها.', video: 'ornaments', degrees: [2, 3.5, 2, 0, 2], syllables: rep('آه', 5), dur: 0.4 },
+  { id: 'bayati-turn', ar: 'زخرفة بياتي', what: 'دوران صغير فيه التانية ¾ بتاعة بياتي.', video: 'ornaments', degrees: [0, 1.5, 3, 1.5, 0], syllables: rep('آه', 5), dur: 0.45 },
+];
+
 export interface PatternNote {
   midi: number;
   syllable: string;

@@ -27,4 +27,12 @@ describe('navigation', () => {
     expect(backOf('songs/s1')).toBe('songs');
     expect(backOf('songs/s1/learn')).toBe('songs/s1');
   });
+  it('the voice course: exercise and placement check → their level → the course → home', () => {
+    expect(tabOf('course/ex/l3-arp')).toBe('');
+    expect(backOf('course/ex/l3-arp')).toBe('course/3');
+    expect(backOf('course/exam/2')).toBe('course/2');
+    expect(backOf('course/2')).toBe('course');
+    expect(backOf('course/graduation')).toBe('course');
+    expect(backOf('course')).toBe('');
+  });
 });

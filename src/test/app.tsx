@@ -2,7 +2,6 @@
 
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
 import App from '../App';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { installAudioUnlock } from '../audio/audio';
@@ -13,6 +12,7 @@ import { AUTH_KEY, restoreStoredSession } from '../sync/account';
 import { server } from './fakeSupabase';
 import { mic } from './fakeMic';
 import { setVisibility } from './setup';
+import { advance, guarded } from './generation';
 
 let installed = false;
 
@@ -51,7 +51,8 @@ export function renderApp(route = '', opts: { prime?: boolean; signedIn?: boolea
   if (opts.signedIn === false) signedOut();
   else signedIn();
   window.location.hash = route ? `#/${route}` : '';
-  const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms) });
+  // a test that timed out stops at its next wait instead of driving the next test (generation.ts)
+  const user = userEvent.setup({ advanceTimers: (ms) => advance(ms) });
   const r = render(
     <ErrorBoundary whole>
       <App />
@@ -62,14 +63,16 @@ export function renderApp(route = '', opts: { prime?: boolean; signedIn?: boolea
 
 /** Let fake time pass (timers, animation frames, the audio clock), flushing React updates. */
 export async function tick(ms = 0) {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(ms);
-    // IndexedDB (fake-indexeddb) finishes on real setImmediate turns, which fake timers don't move
-    for (let i = 0; i < 4; i++) {
-      await new Promise((r) => (globalThis as unknown as { setImmediate: (f: (v?: unknown) => void) => void }).setImmediate(r));
-      await vi.advanceTimersByTimeAsync(0);
-    }
-  });
+  await guarded(() =>
+    act(async () => {
+      await advance(ms); // in slices: a test that timed out stops here (generation.ts)
+      // IndexedDB (fake-indexeddb) finishes on real setImmediate turns, which fake timers don't move
+      for (let i = 0; i < 4; i++) {
+        await new Promise((r) => (globalThis as unknown as { setImmediate: (f: (v?: unknown) => void) => void }).setImmediate(r));
+        await advance(0);
+      }
+    }),
+  );
 }
 
 /** Sing a MIDI note (optionally off by some cents) for `ms`. */
@@ -90,26 +93,32 @@ export async function silence(ms: number) {
 
 /** The phone goes to the home screen / locks, then comes back. */
 export async function leaveApp() {
-  await act(async () => {
-    setVisibility('hidden');
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
+  await guarded(() =>
+    act(async () => {
+      setVisibility('hidden');
+      document.dispatchEvent(new Event('visibilitychange'));
+    }),
+  );
 }
 
 export async function returnToApp() {
-  await act(async () => {
-    setVisibility('visible');
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
+  await guarded(() =>
+    act(async () => {
+      setVisibility('visible');
+      document.dispatchEvent(new Event('visibilitychange'));
+    }),
+  );
   await tick(50);
 }
 
 /** Navigate like tapping a link. */
 export async function go(route: string) {
-  await act(async () => {
-    window.location.hash = `#/${route}`;
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-  });
+  await guarded(() =>
+    act(async () => {
+      window.location.hash = `#/${route}`;
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    }),
+  );
   await tick(20);
 }
 

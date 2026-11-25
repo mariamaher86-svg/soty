@@ -13,8 +13,9 @@ export const GROUPS: { id: string; icon: string; title: string; what: string; it
     id: 'start',
     icon: '🌱',
     title: 'ابدئي من هنا',
-    what: 'المسار اليومي والدروس',
+    what: 'كورس الصوت، المسار اليومي، والدروس',
     items: [
+      { href: '#/course', icon: '🎓', name: 'كورس الصوت', what: 'من الأبسط للأصعب، مستوى مستوى' },
       { href: '#/path', icon: '🌱', name: 'مسار المبتدئ', what: 'تمرين كل يوم وقياس كل أسبوع' },
       { href: '#/lessons', icon: '🎓', name: 'أساسيات الموسيقى', what: 'دروس قصيرة واختبار' },
     ],

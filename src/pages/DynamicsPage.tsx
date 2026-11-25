@@ -39,9 +39,9 @@ function DynGraph({ frames, kind, seconds }: { frames: DynFrame[]; kind: Dynamic
 }
 
 /** "🎚️ العالي والواطي": louder / softer on one steady note. */
-export function DynamicsPage() {
+export function DynamicsPage({ shape, onResult }: { shape?: DynamicsKind; onResult?: (total: number) => void } = {}) {
   const range = useRef(exerciseRange()).current;
-  const [kind, setKind] = useState<DynamicsKind>('cresc');
+  const [kind, setKind] = useState<DynamicsKind>(shape ?? 'cresc');
   const [midi, setMidi] = useState(() => Math.round((range.low + range.high) / 2) - 2);
   const [phase, setPhase] = useState<'idle' | 'rec'>('idle');
   const [frames, setFrames] = useState<DynFrame[]>([]);
@@ -60,6 +60,7 @@ export function DynamicsPage() {
     setScore(s);
     setNone(!s);
     if (s) addResult('dynamics', s.total, `${info.ar} — علو ${s.loudness}٪، ثبات ${s.pitch}٪`);
+    if (s) onResult?.(s.total);
   };
 
   const { frame, error, start, stop } = useMic((f) => {
@@ -86,7 +87,7 @@ export function DynamicsPage() {
   return (
     <Page tips mic help="dynamics" title="🎚️ العالي والواطي" intro="نفس النغمة، والصوت يعلى ويوطى بالراحة.">
       <div className="panel">
-        <div className="choices">
+        <div className="choices" hidden={!!shape}>
           {DYNAMICS_KINDS.map((k) => (
             <button key={k.id} className={k.id === kind ? 'chip active' : 'chip'} disabled={phase === 'rec'} onClick={() => setKind(k.id)}>
               {k.ar}
