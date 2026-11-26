@@ -15,7 +15,7 @@ export const GROUPS: { id: string; icon: string; title: string; what: string; it
     title: 'ابدئي من هنا',
     what: 'كورس الصوت، المسار اليومي، والدروس',
     items: [
-      { href: '#/course', icon: '🎓', name: 'كورس الصوت', what: 'من الأبسط للأصعب، مستوى مستوى' },
+      { href: '#/course', icon: '🎤', name: 'كورس الصوت', what: 'من الأبسط للأصعب، مستوى مستوى' },
       { href: '#/path', icon: '🌱', name: 'مسار المبتدئ', what: 'تمرين كل يوم وقياس كل أسبوع' },
       { href: '#/lessons', icon: '🎓', name: 'أساسيات الموسيقى', what: 'دروس قصيرة واختبار' },
     ],
@@ -95,7 +95,7 @@ export function ExercisesPage() {
   const group = GROUPS.find((x) => x.id === id);
   if (group)
     return (
-      <Page help="exercises" title={`${group.icon} ${group.title}`}>
+      <Page help="exercises" title={`${group.icon} ${group.title}`} intro={group.what}>
         <div className="ex-list">
           {group.items.map((it) => (
             <Row key={it.href + it.name} href={it.href} icon={it.icon} title={it.name} what={it.what} />
@@ -104,7 +104,7 @@ export function ExercisesPage() {
       </Page>
     );
   return (
-    <Page help="exercises" title="التمارين">
+    <Page help="exercises" title="التمارين" intro="كل تمرين لوحده، متقسمين على حسب بيدرّبوا إيه. تمرين النهارده في الرئيسية بيختار لك.">
       <div className="ex-list">
         {GROUPS.map((x) => (
           <Row key={x.id} href={`#/exercises/${x.id}`} icon={x.icon} title={x.title} what={x.what} />

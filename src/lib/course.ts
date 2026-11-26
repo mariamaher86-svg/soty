@@ -1,4 +1,4 @@
-// "🎓 كورس الصوت" rules, pure: passing an exercise (its goal on 2 different days), opening the next level (80% of
+// "🎤 كورس الصوت" rules, pure: passing an exercise (its goal on 2 different days), opening the next level (80% of
 // this one, or the placement check), today's workout from her level, and her saved progress (a pref, so it's in the
 // backup and in sync like the other settings).
 
@@ -107,6 +107,22 @@ export function goalText(goal: CourseGoal): string {
       return goal.tries ? `${ar(goal.min)}٪ صح أو أكتر، في ${ar(goal.tries)} محاولات على الأقل` : `${ar(goal.min)}٪ أو أكتر`;
     case 'phrases':
       return `${ar(goal.min)} جمل من الأغنية توصل ${ar(SONG_PHRASE_GOOD)}٪ في نفس اليوم`;
+  }
+}
+
+/** One go's result in words. */
+export function measureText(goal: CourseGoal, m: CourseMeasure): string {
+  switch (goal.kind) {
+    case 'seconds':
+      return `${ar(Math.round(m.value))} ثانية`;
+    case 'cents':
+      return m.value >= 9999 ? 'مسمعناش صوت كفاية' : `${ar(Math.round(m.value))} سنت`;
+    case 'notes':
+      return `${ar(m.value)} من ${ar(goal.of)} نغمات مظبوطة`;
+    case 'percent':
+      return m.tries !== undefined ? `${ar(m.value)}٪ صح في ${ar(m.tries)} محاولات` : `${ar(m.value)}٪`;
+    case 'phrases':
+      return `${ar(m.value)} جمل وصلت للهدف النهارده`;
   }
 }
 
@@ -249,9 +265,22 @@ export function courseWorkout(p: CourseProgress, light: boolean, workoutsDone: n
   return plan;
 }
 
-/** "المستوى ٣ من ٨ · ٢ من ٤ تمارين" for the path and the home screen. */
-export function courseLine(p: CourseProgress): string {
+/**
+ * Her place in the course, in words for the home card: "مستواكي: ٢ — ثبات النغمة", "خلّصتي ١ من ٤ تمارين" and what
+ * this level teaches. (No "·" next to a number: on the phone it looks exactly like the Arabic zero "٠".)
+ */
+export function courseCard(p: CourseProgress): { level: string; done: string; teaches: string; share: number; graduation: boolean } {
   const l = levelByN(currentLevel(p))!;
-  if (graduationOpen(p)) return p.graduated ? '🎓 اتخرجتي من كورس الصوت' : `🎓 كورس الصوت: فاضل التخرج`;
-  return `🎓 المستوى ${ar(l.n)} من ${ar(COURSE.length)}: ${l.title} · ${ar(passedCount(p, l))} من ${ar(l.exercises.length)} تمارين`;
+  if (graduationOpen(p))
+    return p.graduated
+      ? { level: 'اتخرجتي من الكورس 🎓', done: 'خلّصتي المستويات الـ٨ كلها', teaches: 'غني أغاني أصعب، وارجعي لأي مستوى وقت ما تحبي.', share: 1, graduation: true }
+      : { level: 'فاضل التخرج 🎓', done: 'خلّصتي المستويات الـ٨ كلها', teaches: 'أغنية كاملة من اختيارك، جملة جملة.', share: 1, graduation: true };
+  const done = passedCount(p, l);
+  return {
+    level: `مستواكي: ${ar(l.n)} — ${l.title}`,
+    done: `خلّصتي ${ar(done)} من ${ar(l.exercises.length)} تمارين`,
+    teaches: l.goal,
+    share: done / l.exercises.length,
+    graduation: false,
+  };
 }

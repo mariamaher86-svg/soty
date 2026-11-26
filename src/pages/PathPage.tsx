@@ -12,7 +12,12 @@ import { matchIsReal, MIN_MATCH_TRIES, rangeIsReal, secondsIsReal, stabilityIsRe
 import { getWeeklySong, singSong } from './songNav';
 import { noteName } from '../lib/music';
 import { CourseRunner } from '../components/CourseRunner';
-import { courseLine, courseWorkout, exerciseById, getCourse, goalText, meetsGoal, recordPass, type CoursePlanItem } from '../lib/course';
+import { courseWorkout, exerciseById, getCourse, goalText, measureText, meetsGoal, recordPass, type CoursePlanItem } from '../lib/course';
+import { CourseCard } from '../components/CourseCard';
+import { CourseDemo, courseSource, demoNotes, patternZone } from '../components/CourseRunner';
+import { exerciseRange } from './common';
+import { patternSteps } from '../lib/pianoVocalise';
+import type { CourseExercise } from '../content/course';
 import { defaultRange } from '../lib/voice';
 import { getGender } from '../lib/gender';
 import { getPath, getRange, today, updatePath, voiceResultDates } from '../lib/storage';
@@ -41,7 +46,8 @@ type View =
   | { kind: 'measureDone'; weekly: boolean; m: Measurement }
   | { kind: 'measureEmpty'; weekly: boolean }
   | { kind: 'workoutNotCounted'; done: number; total: number }
-  | { kind: 'workout'; step: number }
+  /** intro = the step's short explanation before the exercise itself (the coach) */
+  | { kind: 'workout'; step: number; intro: boolean }
   | { kind: 'feeling' }
   | { kind: 'feelingDone'; feeling: Feeling };
 
@@ -55,7 +61,11 @@ const MEASURE_INFO: Record<MeasureStep, { title: string; how: string }> = {
   hiss: { title: 'تمرين سسسس', how: 'اتبعي الدايرة: شهيق، كتم، وبعدين "سسسس" طويلة وهادية.' },
 };
 
-const WARMUP_INFO = { title: 'الإحماء', how: 'بررر، سيرينة، وهمهمة — بهدوء ومن غير صوت عالي. دوسي "التالي" جوه كل جزء.' };
+const WARMUP_INFO = {
+  title: 'الإحماء',
+  what: 'بيسخّن صوتك بهدوء عشان ميتعبش في باقي التمرين — زي ما الرياضي بيسخّن قبل الجري.',
+  how: ['بررر: شفايفك بتترعش بالهوا.', 'سيرينة "وووو" لفوق ولتحت مع الخط.', 'همهمة "مممم" على كام نغمة.'],
+};
 const WARMUP_NEED = 'لسه محتاجين جزئين على الأقل من الإحماء (بررر، سيرينة، همهمة).';
 const COURSE_NEED = 'لسه محتاجين نسمعك في التمرين ده مرة واحدة على الأقل.';
 
@@ -74,45 +84,103 @@ function emptyMeasurement(): Measurement {
 
 const minutesAr = (n: number) => (n === 1 ? 'دقيقة' : n === 2 ? 'دقيقتين' : n <= 10 ? `${n} دقايق` : `${n} دقيقة`);
 
-/** Elapsed time of the current step vs. its suggested minutes. */
-function StepTimer({ minutes }: { minutes?: number }) {
-  const [s, setS] = useState(0);
-  useEffect(() => {
-    const t0 = Date.now();
-    const id = setInterval(() => setS(Math.floor((Date.now() - t0) / 1000)), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const clock = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+/** Step count and dots for the measurement and the coach. */
+function StepCount({ n, total }: { n: number; total: number }) {
   return (
-    <span className="hint">
-      ⏱ <span dir="ltr">{clock}</span>
-      {minutes ? ` من حوالي ${minutesAr(minutes)}` : ''}
-    </span>
+    <>
+      <p className="step-count">
+        الخطوة {arDigits(n)} من {arDigits(total)}
+      </p>
+      <div className="step-dots" aria-hidden>
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className={i < n - 1 ? 'past' : i === n - 1 ? 'now' : ''} />
+        ))}
+      </div>
+    </>
   );
 }
 
-function StepFrame({ n, total, title, how, minutes, result, ok, need, onNext, onSkip, children }: { n: number; total: number; title: string; how: string; minutes?: number; result?: string; ok: boolean; need: string; onNext: () => void; onSkip: () => void; children: ReactNode }) {
+function StepFrame({ n, total, title, how, result, ok, need, onNext, onSkip, children }: { n: number; total: number; title: string; how?: string; result?: string; ok: boolean; need: string; onNext: () => void; onSkip: () => void; children: ReactNode }) {
   return (
     <>
       <div className="panel step-head">
-        <p className="step-count">
-          الخطوة {arDigits(n)} من {arDigits(total)}
-        </p>
-        <div className="step-dots" aria-hidden>
-          {Array.from({ length: total }, (_, i) => (
-            <span key={i} className={i < n - 1 ? 'past' : i === n - 1 ? 'now' : ''} />
-          ))}
-        </div>
+        <StepCount n={n} total={total} />
         <h2>{title}</h2>
-        <p className="now">دلوقتي: {how}</p>
+        {how && <p className="now">دلوقتي: {how}</p>}
         <ActivityBadge done={ok} />
-        <StepTimer key={n} minutes={minutes} />
-        {result && <p className="ok-text">{result}</p>}
+        {result && (
+          <p className="ok-text step-result" role="status">
+            {result}
+          </p>
+        )}
       </div>
       <EmbeddedContext.Provider value={true}>{children}</EmbeddedContext.Provider>
       <StepNav ok={ok} need={need} last={n === total} onNext={onNext} onSkip={onSkip} />
     </>
   );
+}
+
+/** Notes for a coach step's example: the exercise's own example, or its pattern from her comfortable start. */
+function exampleNotes(ex: CourseExercise): number[] | null {
+  const range = exerciseRange();
+  const own = demoNotes(ex, range);
+  if (own) return own;
+  const src = courseSource(ex);
+  if (!src) return null;
+  return patternSteps(src, patternZone(ex, range).startAt).map((x) => x.midi);
+}
+
+/**
+ * The coach's first screen for a step: what we'll do and why, the goal, how (numbered), an example to listen to, and
+ * one big "يلا نبدأ". Nothing to set up: the exercise, its notes and its level come from her course and her range.
+ */
+function StepIntro({ n, total, title, what, goal, how, example, onStart, onSkip }: { n: number; total: number; title: string; what: string; goal?: string; how: string[]; example: number[] | null; onStart: () => void; onSkip: () => void }) {
+  return (
+    <div className="coach-intro">
+      <div className="panel step-head">
+        <StepCount n={n} total={total} />
+        <h2>{title}</h2>
+        <p>{what}</p>
+        {goal && (
+          <p className="coach-goal">
+            🎯 <b>الهدف:</b> {goal}
+          </p>
+        )}
+      </div>
+      <div className="panel">
+        <h3>إزاي</h3>
+        <ol className="course-how">
+          {how.map((h) => (
+            <li key={h}>{h}</li>
+          ))}
+        </ol>
+        {example && <CourseDemo notes={example} range={exerciseRange()} />}
+      </div>
+      <button className="big primary coach-start" onClick={onStart}>
+        يلا نبدأ
+      </button>
+      <button className="link" onClick={onSkip}>
+        تخطي الخطوة
+      </button>
+    </div>
+  );
+}
+
+/** Today's plan as the coach starts it (her course level, a light day after a tiring one). */
+function todaysPlan(): CoursePlanItem[] {
+  const real = countedWorkouts(usableMeasurements(getPath()).workouts, voiceResultDates());
+  return courseWorkout(getCourse(), shouldGoLight(real, today()), real.length);
+}
+
+/** Where the path opens: straight into the coach or a measurement when the home screen sent her there. */
+function entryView(): View {
+  const h = window.location.hash;
+  const p = usableMeasurements(getPath());
+  const last = p.weekly.length ? p.weekly[p.weekly.length - 1].date : (p.baseline?.date ?? null);
+  if (h === '#/path/today') return { kind: 'workout', step: 0, intro: true };
+  if (h === '#/path/weekly' && weeklyStatus(last, today()).kind === 'due') return { kind: 'measure', weekly: true, step: 0 };
+  if (h === '#/path/start' && !p.baseline) return { kind: 'measure', weekly: false, step: 0 };
+  return { kind: 'home' };
 }
 
 export function BeginnerGuide() {
@@ -130,11 +198,16 @@ export function BeginnerGuide() {
 }
 
 export function PathPage() {
-  // "🌱 نبدأ من هنا" (welcome / home card) opens #/path/start: go straight into the starting measurement
-  const [view, setView] = useState<View>(() => (window.location.hash === '#/path/start' && !getPath().baseline ? { kind: 'measure', weekly: false, step: 0 } : { kind: 'home' }));
+  // The home screen goes straight in: #/path/today (the big button) starts the coach, #/path/weekly and #/path/start
+  // the measurements. The address stays until that flow ends, so a remount meanwhile (her data arriving from the
+  // server right after opening) lands in the same place.
+  const [view, setView] = useState<View>(() => entryView());
+  const [frozen, setFrozen] = useState<CoursePlanItem[] | null>(() => (window.location.hash === '#/path/today' ? todaysPlan() : null));
   useEffect(() => {
-    if (window.location.hash === '#/path/start') history.replaceState(null, '', '#/path');
-  }, []);
+    const h = window.location.hash;
+    const stillIn = (h === '#/path/today' && view.kind === 'workout') || ((h === '#/path/weekly' || h === '#/path/start') && view.kind === 'measure');
+    if (/^#\/path\/(today|weekly|start)$/.test(h) && !stillIn) history.replaceState(null, '', '#/path');
+  }, [view.kind]);
   const [data, setData] = useState(() => usableMeasurements(getPath()));
   const [stepOk, setStepOk] = useState(false);
   const doneSteps = useRef(0);
@@ -149,7 +222,6 @@ export function PathPage() {
   const workoutsDone = real.length;
   const light = shouldGoLight(real, day);
   // today's workout comes from her course level; it's frozen when it starts, so passing an exercise doesn't shift the steps
-  const [frozen, setFrozen] = useState<CoursePlanItem[] | null>(null);
   const inWorkout = view.kind === 'workout' || view.kind === 'workoutNotCounted';
   const plan = inWorkout && frozen ? frozen : courseWorkout(getCourse(), light, workoutsDone);
   const maqamId = todaysMaqam(workoutsDone);
@@ -197,18 +269,25 @@ export function PathPage() {
   };
 
   const goWorkout = () => {
-    setFrozen(courseWorkout(getCourse(), light, workoutsDone));
+    setFrozen(todaysPlan());
     doneSteps.current = 0;
     setCaptured('');
     setStepOk(false);
-    setView({ kind: 'workout', step: 0 });
+    setView({ kind: 'workout', step: 0, intro: true });
   };
+
+  // the coach is full screen: no tab bar while a workout runs
+  const coaching = view.kind === 'workout';
+  useEffect(() => {
+    document.body.classList.toggle('coach', coaching);
+    return () => document.body.classList.remove('coach');
+  }, [coaching]);
 
   const nextWorkout = (step: number, skipped = false) => {
     if (!skipped) doneSteps.current++;
     setCaptured('');
     setStepOk(false);
-    if (step + 1 < plan.length) return setView({ kind: 'workout', step: step + 1 });
+    if (step + 1 < plan.length) return setView({ kind: 'workout', step: step + 1, intro: true });
     // a workout counts (streak, maqam rotation) only when at least half of its steps were really done
     if (!workoutCounts(doneSteps.current, plan.length)) return setView({ kind: 'workoutNotCounted', done: doneSteps.current, total: plan.length });
     updatePath((p) => p.workouts.push({ date: day, maqam: maqamId, feeling: null, done: doneSteps.current }));
@@ -343,10 +422,28 @@ export function PathPage() {
     );
   }
 
-  // ---- today's workout: the warm-up, then exercises from her course level (and one review)
+  // ---- today's workout, as a coach: for each step a short intro (what, why, how, an example, "يلا نبدأ"), then the
+  // exercise with only what it needs, then one line with the result and "التالي ←"
   if (view.kind === 'workout') {
     const s = plan[view.step];
     const ex = s.step === 'course' ? exerciseById(s.id)! : null;
+    if (view.intro)
+      return (
+        <Page help="path" title="تمرين النهارده">
+          <StepIntro
+            key={view.step}
+            n={view.step + 1}
+            total={plan.length}
+            title={stepTitle(s)}
+            what={ex ? ex.what : WARMUP_INFO.what}
+            goal={ex ? goalText(ex.goal) : undefined}
+            how={ex ? ex.how : WARMUP_INFO.how}
+            example={ex ? exampleNotes(ex) : null}
+            onStart={() => setView({ ...view, intro: false })}
+            onSkip={() => nextWorkout(view.step, true)}
+          />
+        </Page>
+      );
     return (
       <Page tips mic help="path" title="تمرين النهارده">
         <StepFrame
@@ -354,8 +451,6 @@ export function PathPage() {
           n={view.step + 1}
           total={plan.length}
           title={stepTitle(s)}
-          how={ex ? `${ex.what} 🎯 الهدف: ${goalText(ex.goal)}` : WARMUP_INFO.how}
-          minutes={s.minutes}
           result={captured}
           ok={stepOk}
           need={ex ? COURSE_NEED : WARMUP_NEED}
@@ -365,8 +460,8 @@ export function PathPage() {
           {s.step === 'warmup' && (
             <WarmupPage
               light={light}
-              onDone={(parts, c) => {
-                setCaptured(`الإحماء: ${parts} من ٣ أجزاء${c === null ? '' : ` (السيرينة: ±${c} سنت)`}`);
+              onDone={(parts) => {
+                setCaptured(warmupIsReal(parts) ? `برافو! الإحماء خلص (${arDigits(parts)} من ٣ أجزاء)` : `اتعمل ${arDigits(parts)} من ٣ أجزاء`);
                 setStepOk(warmupIsReal(parts));
               }}
             />
@@ -378,7 +473,7 @@ export function PathPage() {
                 if (!real) return;
                 const met = meetsGoal(ex.goal, m);
                 if (met) recordPass(ex.id); // counts in the course too
-                setCaptured(met ? '🎯 وصلتي للهدف ✔' : 'اتسجل ✔ — الهدف لسه، كملي بهدوء');
+                setCaptured(met ? `برافو! ${measureText(ex.goal, m)} — وصلتي للهدف` : `${measureText(ex.goal, m)} — الهدف ${goalText(ex.goal)}. جربي تاني أو دوسي «التالي»`);
                 setStepOk(true);
               }}
             />
@@ -462,11 +557,8 @@ export function PathPage() {
   return (
     <Page tips help="path" title="مسار المبتدئ" intro="تمرين صغير كل يوم، وقياس كل أسبوع.">
       <p className="hint path-line">
-        {days} {days === 1 ? 'يوم' : 'أيام'} ورا بعض · {workoutsDone} تمرين خلص
+        {days} {days === 1 ? 'يوم' : 'أيام'} ورا بعض، و{workoutsDone} تمرين خلص
       </p>
-      <a className="home-lesson" href="#/course">
-        {courseLine(getCourse())}
-      </a>
 
       {restWarning && (
         <div className="error">
@@ -475,40 +567,40 @@ export function PathPage() {
       )}
       {light && !restWarning && <div className="notes">امبارح كان في شوية تعب، فالنهارده تمرين أخف (حوالي ٦ دقايق).</div>}
 
-      {status.kind === 'baseline' ? (
+      <div className="panel center">
+        <h2>{doneToday ? 'خلّصتي تمرين النهارده ✔' : 'تمرين النهارده'}</h2>
+        <p className="hint">
+          {plan.map(stepTitle).join(' ← ')}، حوالي {minutesAr(plan.reduce((a, p) => a + p.minutes, 0))}
+        </p>
+        <p className="hint">
+          النغمات من نص صوتك: <span dir="ltr">{noteName(mid.low)}–{noteName(mid.high)}</span>
+        </p>
+        <button className={doneToday ? 'big' : 'big primary'} onClick={goWorkout}>
+          {doneToday ? 'عيدي التمرين' : 'كمّلي تمرين النهارده'}
+        </button>
+      </div>
+
+      <CourseCard />
+
+      {status.kind === 'baseline' && (
         <div className="panel center">
-          <h2>أول خطوة: قياس البداية</h2>
+          <h2>📏 قياس البداية</h2>
           <p>حوالي ١٠ دقايق: المساحة، مطابقة النغمة، النفس، الثبات، والسسسس. بنحفظه عشان نقارن بيه كل أسبوع.</p>
-          <button className="big primary" onClick={() => goMeasure(false)}>
+          <button className="big" onClick={() => goMeasure(false)}>
             ابدئي قياس البداية
           </button>
         </div>
-      ) : (
-        <>
-          {status.kind === 'due' && (
-            <div className="panel center">
-              <h2>وقت القياس الأسبوعي 📏</h2>
-              <p>عدّى أسبوع! نقيس تاني ونشوف الفرق.</p>
-              <button className="big primary" onClick={() => goMeasure(true)}>
-                ابدئي القياس الأسبوعي
-              </button>
-            </div>
-          )}
-          <div className="panel center">
-            <h2>{doneToday ? 'خلّصتي تمرين النهارده ✔' : 'تمرين النهارده'}</h2>
-            <p className="hint">
-              {plan.map(stepTitle).join(' ← ')} · حوالي {minutesAr(plan.reduce((a, p) => a + p.minutes, 0))}
-            </p>
-            <p className="hint">
-              النغمات من نص صوتك: <span dir="ltr">{noteName(mid.low)}–{noteName(mid.high)}</span>
-            </p>
-            <button className={doneToday ? 'big' : 'big primary'} onClick={goWorkout}>
-              {doneToday ? 'عيدي التمرين' : 'كمّلي تمرين النهارده'}
-            </button>
-            {status.kind === 'later' && <p className="hint">القياس الأسبوعي الجاي بعد {status.inDays} {status.inDays === 1 ? 'يوم' : 'أيام'}.</p>}
-          </div>
-        </>
       )}
+      {status.kind === 'due' && (
+        <div className="panel center">
+          <h2>وقت القياس الأسبوعي 📏</h2>
+          <p>عدّى أسبوع! نقيس تاني ونشوف الفرق.</p>
+          <button className="big" onClick={() => goMeasure(true)}>
+            ابدئي القياس الأسبوعي
+          </button>
+        </div>
+      )}
+      {status.kind === 'later' && <p className="hint">القياس الأسبوعي الجاي بعد {status.inDays} {status.inDays === 1 ? 'يوم' : 'أيام'}.</p>}
 
       {data.baseline && (
         <div className="panel">
@@ -535,27 +627,27 @@ export function PathPage() {
   );
 }
 
-/** Streak and next step, for the home screen card. */
-export function pathSummary(): { streak: number; next: string; started: boolean } {
+/** What the home screen needs: the streak, today's workout (done? how long?), and the measurements due. */
+export function pathSummary(): { streak: number; doneToday: boolean; minutes: number; weeklyDue: boolean; baselineMissing: boolean } {
   const p = usableMeasurements(getPath());
   const real = countedWorkouts(p.workouts, voiceResultDates());
   const day = today();
   const last = p.weekly.length ? p.weekly[p.weekly.length - 1].date : (p.baseline?.date ?? null);
   const status = weeklyStatus(last, day);
-  const days = streak(
-    real.map((w) => w.date),
-    day,
-  );
-  const next =
-    status.kind === 'baseline'
-      ? 'ابدئي بقياس البداية'
-      : status.kind === 'due'
-        ? 'وقت القياس الأسبوعي 📏'
-        : real.some((w) => w.date === day)
-          ? 'خلّصتي تمرين النهارده ✔'
-          : 'كمّلي تمرين النهارده';
-  return { streak: days, next, started: !!p.baseline };
+  const plan = courseWorkout(getCourse(), shouldGoLight(real, day), real.length);
+  return {
+    streak: streak(
+      real.map((w) => w.date),
+      day,
+    ),
+    doneToday: real.some((w) => w.date === day),
+    minutes: plan.reduce((a, s) => a + s.minutes, 0),
+    weeklyDue: status.kind === 'due',
+    baselineMissing: status.kind === 'baseline',
+  };
 }
+
+export { minutesAr };
 
 /** "Record the same song every week": points to the library and the chosen weekly song. */
 function WeeklySongReminder() {

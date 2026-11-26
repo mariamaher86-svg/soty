@@ -1,5 +1,7 @@
 // "❓ كيفية الاستخدام": a button on every feature page that opens its how-to in a popup (✕, the backdrop or Esc closes it).
 
+import { replayWalk } from './Walkthrough';
+import { WALKS } from '../content/walkthrough';
 import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { HELP, type HelpEntry, type HelpKey } from '../content/help';
@@ -59,6 +61,17 @@ export function Help({ id }: { id: HelpKey }) {
             </button>
           }
         >
+          {WALKS[id] && (
+            <button
+              className="link"
+              onClick={() => {
+                setOpen(false);
+                replayWalk(id);
+              }}
+            >
+              🔁 وريني الشرح السريع تاني
+            </button>
+          )}
           <HelpBody e={e} />
         </Dialog>
       )}

@@ -152,7 +152,7 @@ describe('the update banner', () => {
 });
 
 describe('welcome', () => {
-  it('first open: the screens, the girl/boy choice, then the first measurement', async () => {
+  it('first open: the screens, the girl/boy choice, then the first workout', async () => {
     const { user } = renderApp('', { prime: false });
     expect(screen.getByRole('dialog', { name: 'ترحيب' })).toBeTruthy();
     await user.click(button('التالي ←'));
@@ -165,8 +165,9 @@ describe('welcome', () => {
     await tick(20);
     expect(getPref('welcome.done')).toBe('1');
     expect(getPref('gender')).toBe('f');
-    expect(window.location.hash).toBe('#/path'); // the path opens straight on the first measurement
-    expect(screen.getByText(/الخطوة ١ من ٥/)).toBeTruthy();
+    expect(window.location.hash).toBe('#/path/today'); // straight into the first workout (the coach)
+    expect(screen.getByText(/الخطوة ١ من ٤/)).toBeTruthy();
+    expect(button('يلا نبدأ')).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: 'ترحيب' })).toBeNull();
   });
 

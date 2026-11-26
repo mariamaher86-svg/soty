@@ -6,7 +6,7 @@ import { setPref } from '../lib/storage';
 /** Stand-alone "detect the maqam" page; "use it" opens the YouTube sing-along with that key. */
 export function KeyPage() {
   return (
-    <Page tips mic help="key" title="اكتشف المقام">
+    <Page tips mic help="key" title="اكتشف المقام" intro="شغّلي أغنية أو غني، والتطبيق يقولك هي من أنهي مقام.">
       <LessonLink id="maqam" what="مقام أو سلم" />
       <KeyDetector
         onUse={(tonic, scaleId) => {

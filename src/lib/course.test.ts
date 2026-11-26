@@ -11,7 +11,6 @@ import { patternSteps, vocaliseById } from './pianoVocalise';
 import {
   ALL_EXERCISES,
   COURSE_KEY,
-  courseLine,
   courseWorkout,
   currentLevel,
   emptyProgress,
@@ -174,8 +173,6 @@ describe('passing and opening levels', () => {
   it('graduation opens when all 8 levels are done', () => {
     expect(graduationOpen(passedUpTo(7))).toBe(false);
     expect(graduationOpen(passedUpTo(8))).toBe(true);
-    expect(courseLine(passedUpTo(8))).toMatch(/التخرج/);
-    expect(courseLine(emptyProgress())).toBe('🎓 المستوى ١ من ٨: الأساس · ٠ من ٣ تمارين');
   });
 });
 

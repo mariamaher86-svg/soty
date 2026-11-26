@@ -1,4 +1,4 @@
-// "🎓 كورس الصوت": #/course (the levels), #/course/<n> (one level), #/course/ex/<id> (one exercise),
+// "🎤 كورس الصوت": #/course (the levels), #/course/<n> (one level), #/course/ex/<id> (one exercise),
 // #/course/exam/<n> (the placement check "امتحنيني"), #/course/graduation (a full song).
 
 import { useEffect, useState } from 'react';
@@ -20,6 +20,7 @@ import {
   levelDone,
   levelOf,
   meetsGoal,
+  measureText,
   neededToPass,
   PASS_DAYS,
   passDays,
@@ -119,7 +120,7 @@ function CourseHome() {
   const next = nextExercise(p);
   const grad = graduationOpen(p);
   return (
-    <Page help="course" title="🎓 كورس الصوت" intro="من الأبسط للأصعب، خطوة خطوة، لحد ما تغني أي أغنية أو ترنيمة صعبة.">
+    <Page help="course" title="🎤 كورس الصوت" intro="من الأبسط للأصعب، خطوة خطوة، لحد ما تغني أي أغنية أو ترنيمة صعبة.">
       <div className="panel center course-now">
         <p className="step-count">
           المستوى {ar(cur)} من {ar(COURSE.length)}
@@ -257,23 +258,6 @@ function LevelScreen({ level }: { level: CourseLevel }) {
   );
 }
 
-/** One go's result in words. */
-function measureText(ex: CourseExercise, m: CourseMeasure): string {
-  const goal = ex.goal;
-  switch (goal.kind) {
-    case 'seconds':
-      return `${ar(Math.round(m.value))} ثانية`;
-    case 'cents':
-      return m.value >= 9999 ? 'مسمعناش صوت كفاية' : `${ar(Math.round(m.value))} سنت`;
-    case 'notes':
-      return `${ar(m.value)} من ${ar(goal.of)} نغمات مظبوطة`;
-    case 'percent':
-      return m.tries !== undefined ? `${ar(m.value)}٪ صح في ${ar(m.tries)} محاولات` : `${ar(m.value)}٪`;
-    case 'phrases':
-      return `${ar(m.value)} جمل وصلت للهدف النهارده`;
-  }
-}
-
 /** The goal box: what to reach, and how many good days so far. */
 function GoalBox({ ex, p, metNow }: { ex: CourseExercise; p: CourseProgress; metNow: boolean }) {
   const days = passDays(p, ex.id);
@@ -318,7 +302,7 @@ function ExerciseScreen({ ex }: { ex: CourseExercise }) {
       <CourseRunner ex={ex} onMeasure={onMeasure} />
       {last && (
         <p className={'course-last ' + (last.met ? 'ok-text' : 'hint')} role="status">
-          آخر مرة: {measureText(ex, last.m)} {last.met ? '— 🎉 وصلتي للهدف!' : '— قربتي، جربي تاني بهدوء.'}
+          آخر مرة: {measureText(ex.goal, last.m)} {last.met ? '— 🎉 وصلتي للهدف!' : '— قربتي، جربي تاني بهدوء.'}
         </p>
       )}
       <div className="row">

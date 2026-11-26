@@ -30,7 +30,7 @@ export function AccountPage() {
   // the app's gate shows the sign-in before any page; this is only a fallback
   if (!a.user)
     return (
-      <Page help="account" title="👤 حسابي">
+      <Page help="account" title="👤 حسابي" intro="حسابك بيحفظ تقدمك، وبيرجّعه على أي موبايل تدخلي منه.">
         <SignInForm />
       </Page>
     );

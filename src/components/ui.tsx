@@ -1,5 +1,6 @@
 // Small shared UI pieces.
 
+import { Walkthrough } from './Walkthrough';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { nearestNote, noteName, noteNameAr } from '../lib/music';
@@ -54,6 +55,7 @@ export function Page({ title, intro, tips, mic, help, children }: { title: strin
           </div>
         </header>
         {intro && <p className="intro">{intro}</p>}
+        {help && <Walkthrough id={help} />}
         {children}
         <Dialog
           sheet
@@ -116,21 +118,40 @@ export function Score({ value, label = 'النتيجة', children }: { value: Re
   );
 }
 
-/** Horizontal meter: center = on target, left = lower (flat), right = higher (sharp). */
+/** What the meter says in words: in tune, or which way to move (cents = her voice minus the target). */
+export function meterWord(cents: number | null, tolerance = 20): { ar: string; kind: 'none' | 'ok' | 'up' | 'down' } {
+  if (cents === null) return { ar: 'غني…', kind: 'none' };
+  if (Math.abs(cents) <= tolerance) return { ar: 'مظبوط ✔', kind: 'ok' };
+  return cents < 0 ? { ar: 'اطلعي شوية ⬆', kind: 'up' } : { ar: 'انزلي شوية ⬇', kind: 'down' };
+}
+
+/**
+ * Horizontal meter: the moving line is her voice ("صوتك"); the green band in the middle is "right". Left = lower,
+ * right = higher. A word under it says, live, what to do (no ♭/♯ for a beginner).
+ */
 export function CentsMeter({ cents, tolerance = 20, range = 100 }: { cents: number | null; tolerance?: number; range?: number }) {
   const clamped = cents === null ? null : Math.max(-range, Math.min(range, cents));
   const pos = clamped === null ? 50 : 50 + (clamped / range) * 50;
-  const ok = cents !== null && Math.abs(cents) <= tolerance;
+  const word = meterWord(cents, tolerance);
   const zone = (tolerance / range) * 50;
   return (
-    <div className="meter" dir="ltr" aria-label="مؤشر الانحراف بالسنت">
-      <div className="meter-zone" style={{ left: `${50 - zone}%`, width: `${zone * 2}%` }} />
-      <div className="meter-center" />
-      {clamped !== null && <div className={'meter-needle' + (ok ? ' ok' : '')} style={{ left: `${pos}%` }} />}
-      <div className="meter-labels">
-        <span>أوطى ♭</span>
-        <span>♯ أعلى</span>
+    <div className="meter-box">
+      <div className="meter" dir="ltr" aria-label="صوتك مقارنة بالنغمة">
+        <div className="meter-zone" style={{ left: `${50 - zone}%`, width: `${zone * 2}%` }} />
+        <div className="meter-center" />
+        {clamped !== null && (
+          <div className={'meter-needle' + (word.kind === 'ok' ? ' ok' : '')} style={{ left: `${pos}%` }}>
+            <span className="meter-you">صوتك</span>
+          </div>
+        )}
+        <div className="meter-labels">
+          <span>أوطى</span>
+          <span>أعلى</span>
+        </div>
       </div>
+      <p className={'meter-word ' + word.kind} role="status">
+        {word.ar}
+      </p>
     </div>
   );
 }

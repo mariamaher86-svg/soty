@@ -316,7 +316,7 @@ export function SingAlongPage() {
     setPref('sing.mode', m);
   };
   return (
-    <Page tips mic title="غني مع الأغنية">
+    <Page tips mic title="غني مع الأغنية" intro="غني مع أغنية من ملف أو يوتيوب، والتطبيق يقارن صوتك بصوت المطرب.">
       <div className="choices">
         <button className={mode === 'file' ? 'chip active' : 'chip'} onClick={() => choose('file')}>
           🎵 ملف صوت (مقارنة باللحن)

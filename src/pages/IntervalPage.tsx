@@ -110,7 +110,7 @@ export function IntervalPage({ level: fixedLevel, onResult }: { level?: number; 
   const answers = history[level] ?? [];
 
   return (
-    <Page tips mic help="intervals" title="غنا الفواصل" intro="اسمعي النغمة، وغني المسافة المطلوبة.">
+    <Page tips mic help="intervals" title="غنا الفواصل" intro="تسمعي نغمة، وتغني نغمة تانية أعلى منها بمسافة معينة.">
       <YouTubeSearch k="intervals" />
       <LessonLink id="tone" what="تون ونص تون (المسافات)" />
       <ErrorText text={error} />

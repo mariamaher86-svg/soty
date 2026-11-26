@@ -20,7 +20,7 @@ export function CourseLine() {
   const line = pts.flatMap((pt, i) => (i ? [`${x(pt.date)},${y(pts[i - 1].n)}`, `${x(pt.date)},${y(pt.n)}`] : [`${x(pt.date)},${y(pt.n)}`])).join(' ');
   return (
     <div className="panel course-line">
-      <h2>🎓 كورس الصوت — المستويات</h2>
+      <h2>🎤 كورس الصوت: مستواكي على الأيام</h2>
       <p className="hint">
         دلوقتي: المستوى {ar(currentLevel(p))} من {ar(COURSE.length)}
         {p.graduated ? ' · 🎓 اتخرجتي' : ''}

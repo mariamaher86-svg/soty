@@ -186,7 +186,7 @@ export function PianoPage() {
   const octaves = listening ? octavesOff(raw.current) : 0;
 
   return (
-    <Page help="piano" title="🎹 البيانو">
+    <Page help="piano" title="🎹 البيانو" intro="دوسي على مفتاح تسمعيه وغنيه، والبيانو بيقولك قربتي ولا لأ.">
       {mode === 'vocalise' && <PianoVocalise labels={labels} zoom={zoom} range={range} />}
       {mode !== 'vocalise' && (
         <PianoKeyboard

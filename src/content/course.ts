@@ -1,4 +1,4 @@
-// "🎓 كورس الصوت": one step-by-step vocal course, from the simplest to the hardest. Every exercise runs one of the
+// "🎤 كورس الصوت": one step-by-step vocal course, from the simplest to the hardest. Every exercise runs one of the
 // app's existing engines (breath, hum, pitch matching, the note ladder, piano vocalises, sirens, dynamics, intervals,
 // maqam scales, the phrase-by-phrase song loop) with a fixed setting and a clear goal. The rules (passing, unlocking,
 // today's workout) are in lib/course.ts. Edit the wording and the goals here.

@@ -149,3 +149,16 @@ export function nextClimb(start: number, top: number, low: number, high: number,
 export function defaultStart(low: number): number {
   return Math.round(low);
 }
+
+/**
+ * A start note that keeps the whole pattern inside her comfortable range (lowest note ≥ low, highest ≤ high): the
+ * bottom of the range when it fits; if her range is narrower than the pattern, the pattern is centred on it.
+ */
+export function fitStart(low: number, high: number, top: number, bottom = 0): number {
+  const lo = Math.round(low) - bottom;
+  if (lo + top <= Math.round(high)) return lo;
+  return Math.round((low + high - top - bottom) / 2);
+}
+
+/** Does the pattern from `start` stay inside the range? */
+export const fitsRange = (start: number, top: number, low: number, high: number, bottom = 0) => start + bottom >= Math.round(low) && start + top <= Math.round(high);

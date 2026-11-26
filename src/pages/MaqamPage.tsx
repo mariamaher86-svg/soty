@@ -131,7 +131,7 @@ export function MaqamPage({ maqamId: fixedMaqam, tonic: fixedTonic, slow, onResu
   const running = index !== null;
 
   return (
-    <Page tips mic help="maqam" title="المقامات" intro="اسمعي كل درجة وغنيها.">
+    <Page tips mic help="maqam" title="المقامات" intro="المقام سلم نغمات بطعم عربي: اسمعي كل نغمة فيه وغنيها.">
       <YouTubeSearch k="maqam" />
       <LessonLink id="maqam" what="مقام" />
       {!range.fromTest && fixedTonic === undefined && <p className="hint">{NO_RANGE_HINT}</p>}

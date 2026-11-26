@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
-import { button, hiss, renderApp, sing, silence, tick } from '../test/app';
+import { button, go, hiss, renderApp, sing, silence, tick } from '../test/app';
 import { mic } from '../test/fakeMic';
 import { addResult, getPath, setPref, updatePath } from '../lib/storage';
 import { getCourse } from '../lib/course';
@@ -119,45 +119,71 @@ describe('beginner path: the first measurement', () => {
   });
 });
 
-describe("beginner path: today's workout", () => {
-  it('from her course level (level 1: no review yet); real and skipped steps; a goal reached counts in the course; counted when half are done', async () => {
+describe("beginner path: today's workout (the coach)", () => {
+  /** "تخطي الخطوة": on a step's intro or on the exercise itself */
+  const skipStep = () => button('تخطي الخطوة');
+  const inWorkout = () => !!document.querySelector('.step-head');
+
+  it('from the home button, one step at a time: intro (what, goal, how, example, "يلا نبدأ"), the exercise, a one-line result; no tab bar', async () => {
     updatePath((p) => (p.baseline = baseline('2026-11-14')));
-    const { user } = renderApp('path');
-    expect(screen.getByText(/المستوى ١ من ٨/)).toBeTruthy();
-    await user.click(button('كمّلي تمرين النهارده'));
+    const { user } = renderApp('');
+    expect(screen.getByRole('link', { name: /ابدئي تمرين النهارده/ }).getAttribute('href')).toBe('#/path/today');
+    await go('path/today');
+    expect(document.body.classList.contains('coach')).toBe(true);
     expect(document.querySelector('.lesson')).toBeNull();
-    // 1. warm-up skipped
+    // 1. warm-up: its intro, skipped
     expect(stepTitle()).toBe('الإحماء');
     expect(screen.getByText(/الخطوة ١ من ٤/)).toBeTruthy(); // warm-up + the 3 exercises of level 1
-    await user.click(skip());
-    // 2. breath from the belly: a 9-second ssss reaches the goal (8 s)
+    expect(button('يلا نبدأ')).toBeTruthy();
+    await user.click(skipStep());
+    // 2. breath from the belly: the intro says what, the goal and how, then "يلا نبدأ" opens the exercise
     expect(stepTitle()).toBe('الوقفة والنفس من البطن');
-    expect(screen.getByText(/الهدف: ٨ ثواني أو أكتر/)).toBeTruthy();
+    expect(document.querySelector('.coach-goal')!.textContent).toMatch(/الهدف: ٨ ثواني أو أكتر/);
+    expect(document.querySelectorAll('.coach-intro .course-how li')).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'ابدئي' })).toBeNull(); // nothing to sing on the intro
+    await user.click(button('يلا نبدأ'));
     await user.click(button('ابدئي'));
     mic.level = 0.002;
     await silence(8200);
     mic.level = 0.3;
     await hiss(9500);
     await silence(800);
-    expect(screen.getByText(/وصلتي للهدف/)).toBeTruthy();
+    expect(document.querySelector('.step-result')!.textContent).toMatch(/^برافو! .* — وصلتي للهدف$/);
     await user.click(stepNext());
     expect(getCourse().passes['l1-breath']).toEqual(['2026-11-15']);
-    // 3. humming: 2.5 s is a real go but not the goal yet
+    // 3. humming: the example lights its note on the piano; 2.5 s is a real go but not the goal yet
     expect(stepTitle()).toBe('همهمة على نغمة مريحة');
+    await user.click(button('🔊 اسمعي المثال'));
+    await tick(300);
+    expect(document.querySelector('.coach-intro .pkey.target')).toBeTruthy();
+    await tick(2000);
+    await user.click(button('يلا نبدأ'));
     await user.click(button('ابدئي'));
     await sing(57, 2500);
     await silence(800);
-    expect(screen.getByText(/الهدف لسه/)).toBeTruthy();
+    expect(document.querySelector('.step-result')!.textContent).toMatch(/الهدف ٤ ثواني أو أكتر في مرة واحدة\. جربي تاني أو دوسي «التالي»/);
     await user.click(stepNext());
     expect(getCourse().passes['l1-hum']).toBeUndefined();
-    // 4. skipped
-    while (document.querySelector('.step-nav')) await user.click(skip());
+    // 4. skipped from its intro
+    await user.click(skipStep());
     expect(screen.getByText(/حسّيتي بأي وجع/)).toBeTruthy();
+    expect(document.body.classList.contains('coach')).toBe(false);
     expect(getPath().workouts).toHaveLength(1);
     expect(getPath().workouts[0].done).toBe(2);
     await user.click(button('لأ'));
     expect(screen.getByText(/برافو! كده تمام/)).toBeTruthy();
     expect(getPath().workouts[0].feeling).toBe('no');
+  });
+
+  it('no settings inside the coach: a piano exercise has no pattern chips or start-note choice', async () => {
+    setPref('course', JSON.stringify({ passes: {}, placed: { 1: '2026-11-01' }, reached: {} })); // level 2
+    const { user } = renderApp('path/today');
+    await tick(20);
+    while (stepTitle() !== 'سلم الخمس نغمات "آه" على مهلك') await user.click(skipStep());
+    await user.click(button('يلا نبدأ'));
+    expect(screen.queryByRole('button', { name: 'غيّري التمرين' })).toBeNull();
+    expect(screen.queryByText(/اخترناها على قد صوتك/)).toBeNull();
+    expect(button('🎤 دورك')).toBeTruthy();
   });
 
   it('a later level: 3 exercises from it and one review from an earlier level, never a level she has not reached; the streak counts', async () => {
@@ -172,9 +198,9 @@ describe("beginner path: today's workout", () => {
     expect(document.querySelector('.hint.path-line')!.textContent).toMatch(/أيام ورا بعض/);
     await user.click(button('كمّلي تمرين النهارده'));
     const titles: string[] = [];
-    while (document.querySelector('.step-nav')) {
+    while (inWorkout()) {
       titles.push(stepTitle()!);
-      await user.click(skip());
+      await user.click(skipStep());
     }
     const level3 = COURSE[2].exercises.map((e) => e.title);
     const earlier = [...COURSE[0].exercises, ...COURSE[1].exercises].map((e) => 'مراجعة: ' + e.title);
@@ -189,11 +215,19 @@ describe("beginner path: today's workout", () => {
     updatePath((p) => (p.baseline = baseline('2026-11-14')));
     const { user } = renderApp('path');
     await user.click(button('كمّلي تمرين النهارده'));
-    while (document.querySelector('.step-nav')) await user.click(skip());
+    while (inWorkout()) await user.click(skipStep());
     expect(screen.getByText(/مش هيتحسب/)).toBeTruthy();
     expect(getPath().workouts).toHaveLength(0);
     await user.click(button('نجرب تاني'));
     expect(screen.getByText(/الخطوة ١ من/)).toBeTruthy();
+  });
+
+  it('no starting measurement yet: today\'s workout is still there, the measurement is offered under it', async () => {
+    const { user } = renderApp('path');
+    expect(button('كمّلي تمرين النهارده').className).toMatch(/primary/);
+    expect(button('ابدئي قياس البداية').className).not.toMatch(/primary/);
+    await user.click(button('كمّلي تمرين النهارده'));
+    expect(stepTitle()).toBe('الإحماء');
   });
 
   it('pain after the last workout: the path suggests resting today', async () => {

@@ -96,7 +96,7 @@ export function VocalisePage() {
   const shown = vocaliseNotes(v, keys[Math.min(rep, keys.length - 1)]);
 
   return (
-    <Page tips mic help="vocalise" title="تمارين الصوت (فوكاليز)" intro="اسمعي النمط، وغنيه بعده.">
+    <Page tips mic help="vocalise" title="تمارين الصوت (فوكاليز)" intro="تسمعي كام نغمة ورا بعض، وتغنيهم زيهم بالظبط.">
       <ErrorText text={error} />
       <div className="choices">
         {VOCALISES.map((x) => (

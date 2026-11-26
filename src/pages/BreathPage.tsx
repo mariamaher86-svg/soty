@@ -21,7 +21,7 @@ const MODES: { id: Mode; ar: string }[] = [
 export function BreathPage() {
   const [mode, setMode] = useState<Mode>('sustain');
   return (
-    <Page tips mic help="breath" title="النفس">
+    <Page tips mic help="breath" title="النفس" intro="نغمة طويلة على نفس واحد، صوت ثابت، و&quot;سسسس&quot;.">
       <div className="choices">
         {MODES.map((m) => (
           <button key={m.id} className={m.id === mode ? 'chip active' : 'chip'} onClick={() => setMode(m.id)}>

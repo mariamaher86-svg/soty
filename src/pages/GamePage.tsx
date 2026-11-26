@@ -16,6 +16,9 @@ const bestOf = (level: number) => Number(getPref('game.best.' + level) ?? 0) || 
 
 type Phase = 'idle' | 'play' | 'pause' | 'done';
 
+/** The levels by how hard they are (the chip), with what they are underneath. */
+const LEVEL_NAMES: Record<1 | 2 | 3, string> = { 1: 'سهل', 2: 'متوسط', 3: 'صعب' };
+
 /** "🎮 لعبة الصوت": a canvas bird that follows her pitch through gates. */
 export function GamePage() {
   const range = useRef(exerciseRange()).current;
@@ -124,9 +127,14 @@ export function GamePage() {
       const x = BIRD_X + (gate.t - g.t) * lvl.speed;
       if (x > w) break;
       const top = midiToY(gate.midi + lvl.tolerance / 100, low, high, HEIGHT);
-      const bottom = midiToY(gate.midi - lvl.tolerance / 100, low, high, HEIGHT);
-      ctx.fillStyle = i === g.next && g.inside[i] > 0 ? css.ok : css.gate;
-      ctx.fillRect(x, top, gate.dur * lvl.speed, Math.max(6, bottom - top));
+      const bottom = Math.max(top + 6, midiToY(gate.midi - lvl.tolerance / 100, low, high, HEIGHT));
+      const width = gate.dur * lvl.speed;
+      // pillars above and below; the opening between them is where her voice should take the bird
+      ctx.fillStyle = css.gate;
+      ctx.fillRect(x, 0, width, top);
+      ctx.fillRect(x, bottom, width, HEIGHT * 0.95 - bottom);
+      ctx.fillStyle = i === g.next && g.inside[i] > 0 ? css.ok : css.gap;
+      ctx.fillRect(x, top, width, bottom - top);
     }
     if (!reduced) g.flap = (g.flap + dt * 6) % 2;
     ctx.fillStyle = voiced === null ? css.muted : css.accent;
@@ -143,7 +151,8 @@ export function GamePage() {
   };
   const hintsRef = useRef(hints);
   hintsRef.current = hints;
-  const colors = useRef({ bg: '#fff', ground: '#ccc', gate: '#ddd', ok: '#1f9d55', accent: '#6d4bd8', muted: '#999', text: '#000' });
+  // pillars in a strong colour, the opening soft: easy to see where to go
+  const colors = useRef({ bg: '#fff', ground: '#ccc', gate: '#888', gap: '#ece8fb', ok: '#1f9d55', accent: '#6d4bd8', muted: '#999', text: '#000' });
 
   const sizeCanvas = () => {
     const c = canvas.current;
@@ -155,7 +164,7 @@ export function GamePage() {
     c.style.height = HEIGHT + 'px';
     const s = getComputedStyle(document.documentElement);
     const v = (n: string, d: string) => s.getPropertyValue(n).trim() || d;
-    colors.current = { bg: v('--surface', '#fff'), ground: v('--border', '#ccc'), gate: v('--accent-soft', '#ddd'), ok: v('--ok', '#1f9d55'), accent: v('--accent', '#6d4bd8'), muted: v('--muted', '#999'), text: v('--text', '#000') };
+    colors.current = { bg: v('--surface', '#fff'), ground: v('--border', '#ccc'), gate: v('--muted', '#888'), gap: v('--accent-soft', '#ece8fb'), ok: v('--ok', '#1f9d55'), accent: v('--accent', '#6d4bd8'), muted: v('--muted', '#999'), text: v('--text', '#000') };
   };
 
   useEffect(() => {
@@ -219,9 +228,9 @@ export function GamePage() {
   };
 
   return (
-    <Page tips help="game" title="🎮 لعبة الصوت" intro="غني أعلى تطلع العصفورة، أوطى تنزل.">
+    <Page tips help="game" title="🎮 لعبة الصوت" intro="عدّي العصفورة من الفتحات بصوتك.">
       <div className="panel">
-        <div className="choices">
+        <div className="choices" role="group" aria-label="الصعوبة">
           {GAME_LEVELS.map((l) => (
             <button
               key={l.id}
@@ -232,10 +241,11 @@ export function GamePage() {
                 setPref('game.level', String(l.id));
               }}
             >
-              {l.id}. {l.ar}
+              {LEVEL_NAMES[l.id]}
             </button>
           ))}
         </div>
+        <p className="hint">{lvl.ar}</p>
         <Options>
         <label className="check-row">
           <input
@@ -249,17 +259,25 @@ export function GamePage() {
           🔊 اسمعي النغمة قبل كل بوابة
         </label>
         </Options>
-        <Stat label="أعلى نتيجة في المستوى ده" value={bestOf(level) || '—'} />
+        {bestOf(level) > 0 && <Stat label="أحسن نتيجة في المستوى ده" value={bestOf(level)} />}
       </div>
       <div className="game-wrap">
         <canvas ref={canvas} className="game-canvas" aria-label="لعبة الصوت: العصفورة والبوابات" />
-        {phase === 'idle' && <p className="game-overlay">دوسي «▶️ ابدئي اللعب» تحت.</p>}
+        {phase === 'idle' && (
+          <div className="game-start">
+            <span className="game-bird" aria-hidden />
+            <p>غنّي «آآآ»: صوتك العالي يطلّع العصفورة، والواطي ينزّلها. عدّيها من الفتحات.</p>
+            <button className="big primary" onClick={start}>
+              ابدئي
+            </button>
+          </div>
+        )}
         {phase === 'pause' && <p className="game-overlay">واقفة</p>}
       </div>
       <div className="row">
-        {(phase === 'idle' || phase === 'done') && (
+        {phase === 'done' && (
           <button className="big primary" onClick={start}>
-            {phase === 'done' ? '🔁 العبي تاني' : '▶️ ابدئي اللعب'}
+            🔁 العبي تاني
           </button>
         )}
         {phase === 'play' && (

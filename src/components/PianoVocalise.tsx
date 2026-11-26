@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CentsMeter, ErrorText, Options, Stat } from './ui';
 import { Help } from './Help';
+import { arDigits } from './ActivityBadge';
 import { PianoKeyboard } from './PianoKeyboard';
 import { OctaveHint } from './OctaveHint';
 import { useMic } from '../audio/useMic';
@@ -14,7 +15,8 @@ import { MAQAMAT } from '../lib/maqam';
 import { midiToFreq, noteName, quarterToneName } from '../lib/music';
 import { VOCALISES } from '../lib/vocalise';
 import {
-  defaultStart,
+  fitStart,
+  fitsRange,
   followStep,
   nextClimb,
   offWords,
@@ -37,6 +39,17 @@ type Phase = 'idle' | 'listen' | 'ref' | 'sing' | 'result';
 
 const nameOf = (midi: number) => (Number.isInteger(midi) ? `${keyLabel(midi, 'solfege').main} ${noteName(midi)}` : `${quarterToneName(midi).ar} ${quarterToneName(midi).name}`);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** "صول", or a quarter tone's Arabic name: the note's name as she sings it. */
+const shortName = (midi: number) => (Number.isInteger(midi) ? keyLabel(midi, 'solfege').main : quarterToneName(midi).ar);
+
+const sourceOf = (kind: 'vocalise' | 'maqam', vocId: string, maqamId: string): PatternSource =>
+  kind === 'maqam' ? { kind: 'maqam', maqam: MAQAMAT.find((m) => m.id === maqamId)! } : { kind: 'vocalise', id: vocId };
+
+/** The start note that fits the pattern in her comfortable range. */
+export function fitFor(src: PatternSource, range: { low: number; high: number }): number {
+  const steps = patternSteps(src, 0);
+  return fitStart(range.low, range.high, patternTop(steps, 0), -Math.min(...steps.map((x) => x.midi)));
+}
 
 /** A fixed exercise (the voice course): no pattern/tempo choice, and it climbs by itself. */
 export interface PianoVocalisePreset {
@@ -50,7 +63,10 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
   const [maqamId, setMaqamId] = useState(() => (preset?.src.kind === 'maqam' ? preset.src.maqam.id : (getPref('pv.maqam') ?? 'rast')));
   const [tempo, setTempo] = useState<TempoId>(() => preset?.tempo ?? ((getPref('pv.tempo') as TempoId) || 'medium'));
   const [climb, setClimb] = useState(() => !!preset || getPref('pv.climb') === '1');
-  const [start, setStart] = useState(() => startAt ?? defaultStart(range.low));
+  // a start note that keeps the whole pattern in her comfortable range (no warning to read); she can still pick one
+  const [start, setStart] = useState(() => startAt ?? fitFor(sourceOf(kind, vocId, maqamId), range));
+  const [picked, setPicked] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [playIndex, setPlayIndex] = useState(-1);
   const [follow, setFollow] = useState<FollowState>(startFollow);
@@ -59,7 +75,13 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
   const run = useRef({ phase: 'idle' as Phase, follow: startFollow(), last: 0, cancel: 0, dir: 'up' as ClimbDir });
   const raw = useRef<number[]>([]);
 
-  const src: PatternSource = kind === 'maqam' ? { kind: 'maqam', maqam: MAQAMAT.find((m) => m.id === maqamId)! } : { kind: 'vocalise', id: vocId };
+  const src = sourceOf(kind, vocId, maqamId);
+  /** another pattern: a fresh start note that fits it */
+  const choose = (k: 'vocalise' | 'maqam', v: string, m: string) => {
+    setStart(fitFor(sourceOf(k, v, m), range));
+    setPicked(false);
+    setScore(null);
+  };
   const steps = patternSteps(src, start);
   const top = patternTop(steps, start);
   const factor = TEMPOS.find((t) => t.id === tempo)!.factor;
@@ -172,6 +194,7 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
 
   const move = (by: number) => {
     run.current.cancel++;
+    setPicked(true);
     setStart((s) => Math.max(36, Math.min(96 - top, s + by)));
     setScore(null);
     setNote('');
@@ -180,6 +203,7 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
 
   const pick = (midi: number) => {
     if (phase === 'listen' || phase === 'ref' || phase === 'sing') return;
+    setPicked(true);
     setStart(Math.min(midi, 96 - top));
     setScore(null);
     setNote('');
@@ -193,10 +217,81 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
   const freq = frame?.freq ?? null;
   const sung = phase === 'sing' && freq ? nearestKey(freq) : null;
   const liveCents = phase === 'sing' && freq && shown ? centsToTarget(freq, shown.key, shown.quarter) : null;
-  const outsideTop = start + top > range.high;
+  const bottom = start - Math.min(...steps.map((x) => x.midi));
+  const outside = picked && !fitsRange(start, top, range.low, range.high, bottom);
+  const syllables = [...new Set(steps.map((x) => x.syllable))];
+  const say = syllables.length === 1 ? `قولي «${syllables[0]}» على كل نغمة` : `قولي «${steps.map((x) => x.syllable).join(' ')}»`;
+  const what = kind === 'maqam' ? 'سلم المقام طالع ونازل، بالربع تون.' : vocaliseById(vocId)!.what;
 
   return (
-    <>
+    <div className="pv">
+      {!preset && (
+        <div className="pv-head">
+          <p>
+            <b>{label}</b>: {what}
+          </p>
+          <div className="row">
+            <button className="link" aria-expanded={choosing} disabled={busy} onClick={() => setChoosing((c) => !c)}>
+              {choosing ? 'خلاص' : 'غيّري التمرين'}
+            </button>
+            <Help id="piano-vocalise" />
+          </div>
+        </div>
+      )}
+      {!preset && choosing && (
+        <div className="panel">
+          <div className="choices" role="group" aria-label="التمرين">
+            {VOCALISES.map((v) => (
+              <button
+                key={v.id}
+                disabled={busy}
+                className={kind === 'vocalise' && v.id === vocId ? 'chip active' : 'chip'}
+                onClick={() => {
+                  setKind('vocalise');
+                  setVocId(v.id);
+                  setPref('pv.kind', 'vocalise');
+                  setPref('pv.vocalise', v.id);
+                  choose('vocalise', v.id, maqamId);
+                }}
+              >
+                {v.ar}
+              </button>
+            ))}
+            <button
+              disabled={busy}
+              className={kind === 'maqam' ? 'chip active' : 'chip'}
+              onClick={() => {
+                setKind('maqam');
+                setPref('pv.kind', 'maqam');
+                choose('maqam', vocId, maqamId);
+              }}
+            >
+              🎼 سلم مقام
+            </button>
+          </div>
+          {kind === 'maqam' && (
+            <div className="choices" role="group" aria-label="المقام">
+              {MAQAMAT.map((m) => (
+                <button
+                  key={m.id}
+                  disabled={busy}
+                  className={m.id === maqamId ? 'chip active' : 'chip'}
+                  onClick={() => {
+                    setMaqamId(m.id);
+                    setPref('pv.maqam', m.id);
+                    choose('maqam', vocId, m.id);
+                  }}
+                >
+                  {m.ar}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <p className="guide pv-say">{say}: اسمعي الأول، وبعدين دورك.</p>
+
       <PianoKeyboard
         target={shown?.key ?? null}
         quarter={shown?.quarter ?? 0}
@@ -205,22 +300,17 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
         labels={labels}
         zoom={zoom}
         onKey={pick}
-        caption={
-          shownStep ? (
-            <>
-              <span className="pv-syllable">{shownStep.syllable}</span> <span dir="auto">{nameOf(shownStep.midi)}</span>
-            </>
-          ) : undefined
-        }
+        caption={shownStep ? <span dir="auto">{nameOf(shownStep.midi)}</span> : undefined}
       />
 
-      <ol className="pv-dots" aria-label="نغمات التمرين">
-        {steps.map((s, i) => {
+      <ol className="pv-notes" aria-label="نغمات التمرين">
+        {steps.map((st, i) => {
           const r = follow.results[i];
           const cls = r ? (r.ok ? 'ok' : 'bad') : (phase === 'sing' && i === follow.index) || (phase === 'listen' && i === playIndex) ? 'now' : '';
           return (
             <li key={i} className={cls}>
-              <span className="pv-dot">{r ? (r.ok ? '✔' : '✘') : s.syllable}</span>
+              <b>{arDigits(i + 1)}</b> <span>{shortName(st.midi)}</span>
+              {r && <span className="pv-mark">{r.ok ? '✔' : '✘'}</span>}
               {r && !r.ok && <small>{offWords(r.cents)}</small>}
             </li>
           );
@@ -232,13 +322,28 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
       {phase === 'sing' && (
         <div className="panel center">
           <p className="guide">
-            دلوقتي: <b>{shownStep?.syllable}</b> على <span dir="auto">{shownStep ? nameOf(shownStep.midi) : ''}</span>
+            دلوقتي: <b>{shownStep ? shortName(shownStep.midi) : ''}</b>
           </p>
           <CentsMeter cents={liveCents} tolerance={STEP_TOLERANCE} />
           <OctaveHint rawCents={raw.current} fromTest={range.fromTest} />
         </div>
       )}
       {phase === 'ref' && <p className="panel center hint">اسمعي أول نغمة… وبعدين دورك.</p>}
+
+      <div className="row">
+        {busy ? (
+          <button className="big primary" onClick={stopAll}>
+            ⏹ وقفي
+          </button>
+        ) : (
+          <>
+            <button onClick={() => void listen()}>🔊 اسمعي</button>
+            <button className="big primary" onClick={() => void sing()}>
+              🎤 دورك
+            </button>
+          </>
+        )}
+      </div>
 
       {score && phase !== 'sing' && (
         <div className="panel">
@@ -271,113 +376,44 @@ export function PianoVocalise({ labels, zoom, range, preset, startAt, onRound }:
         </div>
       )}
 
-      <div className="row">
-        {busy ? (
-          <button className="big primary" onClick={stopAll}>
-            ⏹ وقفي
-          </button>
-        ) : (
-          <>
-            <button onClick={() => void listen()}>🔊 اسمعي</button>
-            <button className="big primary" onClick={() => void sing()}>
-              🎤 دورك
-            </button>
-          </>
-        )}
-      </div>
-
+      {outside && <p className="hint pv-outside">النغمة دي برا المنطقة المريحة لصوتك شوية — غنّيها بهدوء، أو انزلي نص تون.</p>}
       {preset ? (
-        <p className="hint">
-          البداية: <b dir="auto">{nameOf(start)}</b> — بعد كل مرة حلوة (٨٠٪ أو أكتر) بتطلع نص تون لوحدها، وبعدين تنزل.
-        </p>
+        <p className="hint">بعد كل مرة حلوة (٨٠٪ أو أكتر) بتطلع نص تون لوحدها، وبعدين تنزل.</p>
       ) : (
-      <div className="panel">
-        <div className="page-head">
-          <h2>🎶 فوكاليز على البيانو</h2>
-          <Help id="piano-vocalise" />
-        </div>
-        <div className="choices" role="group" aria-label="التمرين">
-          {VOCALISES.map((v) => (
-            <button
-              key={v.id}
-              disabled={busy}
-              className={kind === 'vocalise' && v.id === vocId ? 'chip active' : 'chip'}
-              onClick={() => {
-                setKind('vocalise');
-                setVocId(v.id);
-                setPref('pv.kind', 'vocalise');
-                setPref('pv.vocalise', v.id);
-                setScore(null);
-              }}
-            >
-              {v.ar}
-            </button>
-          ))}
-          <button
-            disabled={busy}
-            className={kind === 'maqam' ? 'chip active' : 'chip'}
-            onClick={() => {
-              setKind('maqam');
-              setPref('pv.kind', 'maqam');
-              setScore(null);
-            }}
-          >
-            🎼 سلم مقام
-          </button>
-        </div>
-        {kind === 'maqam' && (
-          <div className="choices" role="group" aria-label="المقام">
-            {MAQAMAT.map((m) => (
-              <button
-                key={m.id}
-                disabled={busy}
-                className={m.id === maqamId ? 'chip active' : 'chip'}
-                onClick={() => {
-                  setMaqamId(m.id);
-                  setPref('pv.maqam', m.id);
-                  setScore(null);
+        <>
+          <p className="hint">
+            البداية: <b dir="auto">{nameOf(start)}</b> — اخترناها على قد صوتك، وممكن تدوسي أي مفتاح تغيّريها.
+          </p>
+          <Options label={`خيارات: السرعة ${TEMPOS.find((t) => t.id === tempo)!.ar}${climb ? '، طالعة لوحدها' : ''}`}>
+            <div className="choices" role="group" aria-label="السرعة">
+              {TEMPOS.map((t) => (
+                <button
+                  key={t.id}
+                  className={t.id === tempo ? 'chip active' : 'chip'}
+                  onClick={() => {
+                    setTempo(t.id);
+                    setPref('pv.tempo', t.id);
+                  }}
+                >
+                  {t.ar}
+                </button>
+              ))}
+            </div>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={climb}
+                onChange={(e) => {
+                  setClimb(e.target.checked);
+                  setPref('pv.climb', e.target.checked ? '1' : '0');
+                  run.current.dir = 'up';
                 }}
-              >
-                {m.ar}
-              </button>
-            ))}
-          </div>
-        )}
-        <p className="hint">
-          البداية: <b dir="auto">{nameOf(start)}</b> — دوسي على أي مفتاح عشان تغيّريها.
-        </p>
-        {outsideTop && <p className="warn-text">آخر نغمة في التمرين ده ({nameOf(start + top)}) فوق المنطقة المريحة لصوتك — غنّيها بهدوء أو انزلي نص تون.</p>}
-        <Options label={`خيارات: السرعة ${TEMPOS.find((t) => t.id === tempo)!.ar}${climb ? '، طالعة لوحدها' : ''}`}>
-          <div className="choices" role="group" aria-label="السرعة">
-            {TEMPOS.map((t) => (
-              <button
-                key={t.id}
-                className={t.id === tempo ? 'chip active' : 'chip'}
-                onClick={() => {
-                  setTempo(t.id);
-                  setPref('pv.tempo', t.id);
-                }}
-              >
-                {t.ar}
-              </button>
-            ))}
-          </div>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={climb}
-              onChange={(e) => {
-                setClimb(e.target.checked);
-                setPref('pv.climb', e.target.checked ? '1' : '0');
-                run.current.dir = 'up';
-              }}
-            />
-            ⬆ تطلع لوحدها نص تون بعد كل مرة حلوة (٨٠٪ أو أكتر)، وبعدين تنزل
-          </label>
-        </Options>
-      </div>
+              />
+              ⬆ تطلع لوحدها نص تون بعد كل مرة حلوة (٨٠٪ أو أكتر)، وبعدين تنزل
+            </label>
+          </Options>
+        </>
       )}
-      {preset && outsideTop && <p className="warn-text">آخر نغمة ({nameOf(start + top)}) فوق المنطقة المريحة — غنّيها بهدوء أو دوسي «⬇ نص تون».</p>}
-    </>
+    </div>
   );
 }

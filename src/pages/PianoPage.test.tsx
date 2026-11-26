@@ -134,6 +134,7 @@ describe('piano vocalises', () => {
   it('a maqam scale can be chosen as the pattern', async () => {
     const { user } = renderApp('piano');
     await user.click(button(/🎶 فوكاليز/));
+    await user.click(button('غيّري التمرين')); // the other patterns are behind it
     await user.click(button(/سلم مقام/));
     await user.click(screen.getAllByRole('button', { name: 'راست' })[0]);
     await user.click(button('🔊 اسمعي'));

@@ -31,7 +31,7 @@ function hasBackupNews(): boolean {
 export function MorePage() {
   const [theme, setThemeState] = useState<Theme>(getTheme);
   return (
-    <Page title="المزيد">
+    <Page title="المزيد" intro="حسابك، التنبيهات، الإعدادات، ونسخة من بياناتك.">
       <nav className="list" aria-label="صفحات تانية">
         {LINKS.map((l) => (
           <a key={l.href} className="list-row" href={l.href}>

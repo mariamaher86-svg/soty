@@ -1,10 +1,11 @@
 import { GenderCard } from '../components/GenderChoice';
-import { g } from '../lib/gender';
-import { pathSummary } from './PathPage';
+import { CourseCard } from '../components/CourseCard';
+import { minutesAr, pathSummary } from './PathPage';
 import { lessonById, todaysLesson } from '../content/lessons';
 import { readCount } from '../lib/lessonProgress';
 import { getLessonProgress, getLessonsDone, today } from '../lib/storage';
-import { courseLine, getCourse } from '../lib/course';
+import { arDigits } from '../components/ActivityBadge';
+import { g } from '../lib/gender';
 
 const TILES = [
   { href: '#/lessons', icon: '🎓', title: 'الدروس' },
@@ -12,12 +13,13 @@ const TILES = [
   { href: '#/songs', icon: '📚', title: 'أغانيّ' },
 ];
 
-/** Home: a greeting, one big button for today, the streak in one line, and three ways in. Everything else is inside. */
+/**
+ * Home: ONE big button that always does the right next thing (today's workout; once it's done, more of the course),
+ * named after what she'll do. Measurements are never the main button: a small card under it. Then her course card,
+ * the streak, and the three ways in. An optional lesson is a small secondary link.
+ */
 export function HomePage({ askGender, onGenderDone }: { askGender: boolean; onGenderDone: () => void }) {
-  const { streak, next, started } = pathSummary();
-  const doneToday = next.includes('✔');
-  const weekly = next.includes('الأسبوعي');
-  // lessons are their own habit: one optional line, never part of the workout
+  const { streak, doneToday, minutes, weeklyDue, baselineMissing } = pathSummary();
   const lessonId = todaysLesson(getLessonsDone(), today());
   const lesson = lessonId ? lessonById(lessonId)! : null;
   const lessonHref = lesson ? `#/lessons/${lesson.id}${readCount(getLessonProgress(), lesson.id) ? '/resume' : ''}` : '';
@@ -25,31 +27,36 @@ export function HomePage({ askGender, onGenderDone }: { askGender: boolean; onGe
     <section className="page home">
       {askGender && <GenderCard onDone={onGenderDone} />}
       <h1 className="greeting">أهلاً 👋</h1>
-      {!started ? (
+      {doneToday ? (
         <>
-          <a className="button-link big-link" href="#/path/start">
-            نبدأ من هنا
+          <p className="ok-text home-line">✔ خلّصتي تمرين النهارده — برافو!</p>
+          <a className="button-link big-link secondary" href="#/course">
+            كمّلي في كورس الصوت
           </a>
-          <p className="hint home-line">قياس صغير لصوتك (حوالي ١٠ دقايق)، وبعده التطبيق يقولك {g('تتمرني', 'تتمرن')} على إيه كل يوم.</p>
         </>
       ) : (
-        <>
-          <a className={'button-link big-link' + (doneToday ? ' secondary' : '')} href="#/path">
-            {doneToday ? 'خلّصتي تمرين النهارده ✔' : weekly ? 'ابدئي القياس الأسبوعي' : 'ابدئي تمرين النهارده'}
-          </a>
-          <p className="hint home-line">
-            {streak} {streak === 1 ? 'يوم' : 'أيام'} ورا بعض
-          </p>
-        </>
-      )}
-      <a className="home-lesson" href="#/course">
-        {courseLine(getCourse())}
-      </a>
-      {lesson && (
-        <a className="home-lesson" href={lessonHref}>
-          درس النهارده (اختياري): {lesson.title}
+        <a className="button-link big-link" href="#/path/today">
+          ابدئي تمرين النهارده — {minutesAr(minutes)}
         </a>
       )}
+      {streak > 0 && (
+        <p className="hint home-line">
+          🔥 {arDigits(streak)} {streak === 1 ? 'يوم' : 'أيام'} ورا بعض
+        </p>
+      )}
+      {weeklyDue && (
+        <a className="home-card" href="#/path/weekly">
+          📏 وقت القياس الأسبوعي — حوالي ١٠ دقايق
+          <span className="hint">بنقيس صوتك ونقارنه بالأسبوع اللي فات.</span>
+        </a>
+      )}
+      {baselineMissing && (
+        <a className="home-card" href="#/path/start">
+          📏 قياس البداية — حوالي ١٠ دقايق
+          <span className="hint">مرة واحدة، عشان كل أسبوع تشوفي صوتك اتحسن قد إيه.</span>
+        </a>
+      )}
+      <CourseCard />
       <nav className="tiles" aria-label="ادخلي على">
         {TILES.map((t) => (
           <a key={t.href} className="tile" href={t.href}>
@@ -60,6 +67,11 @@ export function HomePage({ askGender, onGenderDone }: { askGender: boolean; onGe
           </a>
         ))}
       </nav>
+      {lesson && (
+        <a className="home-minor" href={lessonHref}>
+          درس قصير {g('لو حابة', 'لو حابب')}: {lesson.title}
+        </a>
+      )}
     </section>
   );
 }

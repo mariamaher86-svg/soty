@@ -383,7 +383,7 @@ button.danger {
   position: relative;
   width: 100%;
   max-width: 420px;
-  height: 56px;
+  height: 70px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--r);
@@ -408,7 +408,7 @@ button.danger {
 
 .meter-needle {
   position: absolute;
-  top: 6px;
+  top: 22px;
   bottom: 20px;
   width: 8px;
   margin-left: -4px;
@@ -3819,4 +3819,273 @@ main {
   padding-inline-start: 1.2em;
   color: var(--muted);
   font-size: var(--fs-sm);
+}
+
+/* the meter: "صوتك" over the moving line, and what to do in words under it */
+.meter-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.meter-you {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.meter-word {
+  margin: var(--s2) 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  min-height: 1.6em;
+}
+
+.meter-word.ok {
+  color: var(--ok);
+}
+
+.meter-word.up,
+.meter-word.down {
+  color: var(--warn);
+}
+
+.meter-word.none {
+  color: var(--muted);
+}
+
+/* ---- the coach (today's workout): full screen, one step at a time ---- */
+body.coach .tabbar {
+  display: none;
+}
+
+.coach-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.coach-intro .panel h3 {
+  margin: 0 0 var(--s2);
+}
+
+.coach-goal {
+  margin: var(--s2) 0 0;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r);
+  background: var(--accent-soft);
+}
+
+.coach-start {
+  width: 100%;
+}
+
+.step-result {
+  font-size: 1.05rem;
+}
+
+/* ---- home: a small card under the big button, the course card, a secondary link ---- */
+.home-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  margin: 0 0 var(--s3);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.course-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  margin: 0 0 var(--s4);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
+.course-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.course-card-head > span:nth-child(2) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.course-card-icon {
+  font-size: 1.8rem;
+}
+
+.course-card-title {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.course-card-level {
+  font-size: 1.1rem;
+}
+
+.course-card-done {
+  font-weight: 600;
+}
+
+.course-card-teaches {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.home-minor {
+  display: block;
+  margin: var(--s4) 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+/* ---- 🎶 piano vocalise: short keyboard, numbered note names, the start button right under them ---- */
+.pv .piano {
+  height: clamp(86px, 12vh, 112px);
+}
+
+.pv-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.pv-head p {
+  margin: 0;
+}
+
+.pv-say {
+  margin: var(--s2) 0;
+}
+
+.pv-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-notes li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+}
+
+.pv-notes li.now {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.pv-notes li.ok .pv-mark {
+  color: var(--ok);
+}
+
+.pv-notes li.bad .pv-mark {
+  color: var(--warn);
+}
+
+/* ---- 🎮 the game's start screen: the bird, one line, one button ---- */
+.game-wrap {
+  min-height: 300px;
+}
+
+.game-start {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  text-align: center;
+}
+
+.game-start p {
+  margin: 0;
+  font-weight: 600;
+  max-width: 28em;
+}
+
+.game-bird {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.game-bird::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  inset-inline-end: -16px;
+  width: 16px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+/* ---- "أول مرة هنا؟" bubbles ---- */
+.walk {
+  margin: 0 0 var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg);
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow);
+}
+
+.walk p {
+  margin: 0 0 var(--s2);
+}
+
+.walk-count {
+  font-size: var(--fs-sm);
+  opacity: 0.85;
+}
+
+.walk-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.walk button.primary {
+  background: var(--accent-text);
+  color: var(--accent);
+}
+
+.walk button.link {
+  color: var(--accent-text);
 }

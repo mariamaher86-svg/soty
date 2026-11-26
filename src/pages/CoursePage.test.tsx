@@ -1,4 +1,4 @@
-// "🎓 كورس الصوت" screens: the levels, a level, an exercise (goal, how, example, the real exercise, passing on two
+// "🎤 كورس الصوت" screens: the levels, a level, an exercise (goal, how, example, the real exercise, passing on two
 // days), the placement check, a piano-vocalise exercise, and the course line in Progress.
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, screen } from '@testing-library/react';
@@ -44,7 +44,9 @@ describe('voice course: the levels', () => {
     renderApp('exercises/start');
     expect(document.querySelector('main a[href="#/course"]')).toBeTruthy();
     await go('');
-    expect(screen.getByRole('link', { name: /المستوى ١ من ٨: الأساس/ }).getAttribute('href')).toBe('#/course');
+    const card = document.querySelector('a.course-card')!;
+    expect(card.getAttribute('href')).toBe('#/course');
+    expect(card.textContent).toMatch(/مستواكي: ١ — الأساس/);
   });
 
   it('a level: its goal, "why it matters", every exercise with its goal, and the placement check on her level', () => {
@@ -188,7 +190,7 @@ describe('voice course in Progress', () => {
   it('a line with the day each level opened', () => {
     setPref('course', JSON.stringify({ passes: {}, placed: { 1: '2026-11-10' }, reached: { 1: '2026-11-01', 2: '2026-11-10' } }));
     renderApp('progress');
-    expect(screen.getByText(/كورس الصوت — المستويات/)).toBeTruthy();
+    expect(screen.getByText(/كورس الصوت: مستواكي على الأيام/)).toBeTruthy();
     expect(screen.getByText(/دلوقتي: المستوى ٢ من ٨/)).toBeTruthy();
     expect(document.querySelectorAll('.course-line circle')).toHaveLength(2);
   });
